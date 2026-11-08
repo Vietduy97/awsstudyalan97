@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 12 — KMS & Mã Hóa: Bảo Vệ Dữ Liệu — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 12 — KMS &amp; Mã Hóa: Bảo Vệ Dữ Liệu</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Phân biệt mã hóa at rest và in transit, mã hóa phía client và phía server.</li>
+<li>Hiểu Envelope Encryption — cơ chế cốt lõi đằng sau AWS KMS.</li>
+<li>Phân biệt các loại KMS key và vai trò của Key Policy.</li>
+<li>Phân biệt KMS vs CloudHSM, Secrets Manager vs Parameter Store.</li>
+</ul>
+<p>Bài này thuộc domain <strong>Secure — chiếm 30% đề SAA-C03</strong>, là domain nặng nhất. Học chắc bài này là đầu tư có lãi nhất.</p>
+<h2>Lý thuyết chính (tiếng Việt, giữ thuật ngữ English)</h2>
+<h3>1. Hai trạng thái dữ liệu cần mã hóa</h3>
+<ul>
+<li><strong>Encryption at rest:</strong> mã hóa dữ liệu khi nó đang <strong>nằm yên</strong> trong nơi lưu trữ: S3, EBS volume, RDS database, file trên ổ đĩa. Nếu kẻ xấu lấy được ổ đĩa vật lý hay snapshot, họ chỉ thấy dữ liệu đã mã hóa.</li>
+<li><strong>Encryption in transit:</strong> mã hóa dữ liệu khi nó đang <strong>di chuyển</strong> trên đường truyền: từ user tới ALB, giữa các dịch vụ. Công nghệ quen thuộc là TLS/HTTPS.</li>
+</ul>
+<p>Hệ thống đạt chuẩn thường phải có <strong>cả hai</strong>. Đề hay hỏi tách riêng: "dữ liệu trên đường truyền" -&gt; TLS; "dữ liệu lưu trong database" -&gt; at rest.</p>
+<h3>2. Mã hóa phía Server vs phía Client</h3>
+<ul>
+<li><strong>Server-side encryption:</strong> dữ liệu được bên nhận (AWS service) mã hóa sau khi nhận. Ví dụ S3 tự mã hóa object khi lưu xuống đĩa. Bạn đã gặp ở các bài S3 (SSE-S3, SSE-KMS...), EBS và RDS — tất cả đều là server-side.</li>
+<li><strong>Client-side encryption:</strong> dữ liệu được mã hóa <strong>ngay tại phía bạn, trước khi gửi lên AWS</strong>. AWS chỉ nhận và lưu bản đã mã hóa, không bao giờ thấy bản gốc.</li>
+</ul>
+<h3>3. AWS KMS là gì?</h3>
+<p><strong>AWS Key Management Service (KMS)</strong> là dịch vụ quản lý khóa mã hóa (encryption key) của AWS. Các dịch vụ như S3, EBS, RDS đều tích hợp với KMS để lấy khóa mã hóa dữ liệu. Bạn gần như không bao giờ mã hóa dữ liệu lớn trực tiếp bằng KMS key — KMS quản lý <strong>khóa</strong>, còn cơ chế thực tế là Envelope Encryption ở mục dưới.</p>
+<h3>4. Envelope Encryption — Khái niệm quan trọng nhất bài</h3>
+<p><strong>Envelope Encryption (mã hóa phong bì)</strong> hoạt động theo hai lớp:</p>
+<ol>
+<li>KMS sinh ra một <strong>Data Key</strong> để mã hóa chính dữ liệu của bạn. Bản gốc của Data Key (plaintext) dùng xong sẽ bị hủy khỏi bộ nhớ sau khi mã hóa xong.</li>
+<li>Bản sao của Data Key sẽ được <strong>mã hóa bởi KMS key</strong> (khóa chủ), tạo thành <strong>Encrypted Data Key</strong>, và được lưu <strong>cùng với</strong> dữ liệu đã mã hóa.</li>
+</ol>
+<p>Khi cần giải mã: đưa Encrypted Data Key cho KMS, KMS dùng khóa chủ giải mã nó để lấy lại Data Key, rồi dùng Data Key đó giải mã dữ liệu.</p>
+<p>Lợi ích: muốn đổi khóa chủ (rotation) thì chỉ cần mã hóa lại các Data Key, không phải mã hóa lại toàn bộ dữ liệu khổng lồ. Và KMS key thật <strong>không bao giờ rời khỏi KMS</strong> — mọi thao tác với khóa chủ đều thực hiện bên trong KMS, có ghi log qua CloudTrail.</p>
+<h3>5. Các loại KMS Key</h3>
+<ul>
+<li><strong>AWS owned keys:</strong> khóa do AWS sở hữu và quản lý hoàn toàn cho nhiều dịch vụ. Bạn không nhìn thấy, không quản lý được — chỉ biết là có dùng ở một số dịch vụ.</li>
+<li><strong>AWS managed keys:</strong> khóa KMS do AWS tạo và quản lý <strong>trong tài khoản của bạn</strong> cho từng dịch vụ, dạng tên <code>aws/s3</code>, <code>aws/ebs</code>... Bạn xem được nhưng không tự xóa, không tự đặt policy chi tiết hay rotation theo ý mình được.</li>
+<li><strong>Customer managed keys:</strong> khóa <strong>bạn tự tạo</strong> trong KMS. Bạn toàn quyền: tạo, <strong>xóa</strong> (lên lịch xóa), bật/tắt, đặt Key Policy, và bật <strong>automatic rotation</strong>. Đây là loại đề thi hỏi nhiều nhất vì nó gắn với yêu cầu kiểm soát chặt.</li>
+</ul>
+<h3>6. Key Policy</h3>
+<p><strong>Key Policy</strong> là tài liệu chính sách gắn trực tiếp trên một KMS key, là <strong>nơi kiểm soát chính</strong> quyền sử dụng key đó: ai được dùng key để mã hóa/giải mã, ai được quản trị key.</p>
+<p>Điểm cần nhớ: một KMS key luôn phải có Key Policy. IAM policy của user chỉ phát huy tác dụng khi Key Policy cho phép tài khoản ủy quyền qua IAM. Khi đề hỏi "ai kiểm soát quyền dùng key" hoặc "user có IAM policy đầy đủ vẫn không dùng được key" — hãy nghĩ tới Key Policy.</p>
+<p>Ngoài ra còn có <strong>Grants</strong> — cơ chế cấp quyền tạm thời, chi tiết hơn cho các dịch vụ AWS dùng key thay mặt bạn — chỉ cần biết tên ở mức SAA.</p>
+<h3>7. Automatic Key Rotation</h3>
+<p>Với <strong>Customer managed key</strong>, KMS hỗ trợ <strong>Automatic Rotation</strong>: định kỳ tự tạo vật liệu khóa mới cho key, ở mức khái niệm là <strong>chu kỳ 1 năm</strong> khi tính năng này được bật. KMS key ID giữ nguyên, vật liệu khóa cũ vẫn được giữ lại để giải mã dữ liệu cũ. Rotation tốt cho bảo mật và compliance, và nhờ Envelope Encryption nên bạn không phải mã hóa lại toàn bộ dữ liệu khi key được rotate.</p>
+<h3>8. KMS vs CloudHSM</h3>
+<p><strong>AWS CloudHSM</strong> cung cấp cụm <strong>HSM (Hardware Security Module) chuyên dụng — dedicated</strong> cho riêng bạn. Bạn tự quản lý khóa hoàn toàn bên trong phần cứng đó, AWS không truy cập được khóa của bạn.</p>
+<p>Chọn CloudHSM khi có <strong>yêu cầu compliance đặc biệt</strong> bắt buộc phải dùng HSM riêng do mình kiểm soát, hoặc các chuẩn mã hóa chuyên biệt. Đổi lại, CloudHSM phức tạp và tốn công vận hành hơn nhiều. Mặc định, 99% tình huống trong đề: chọn <strong>KMS</strong>. Chỉ chọn CloudHSM khi đề nhấn mạnh "dedicated HSM", "single-tenant hardware", "customer fully controls the keys / AWS must not have access".</p>
+<h3>9. Secrets Manager vs Parameter Store</h3>
+<p>Cả hai đều lưu cấu hình và bí mật, nhưng khác nhau ở trọng tâm:</p>
+<ul>
+<li><strong>AWS Secrets Manager:</strong> chuyên cho <strong>credentials / secrets</strong> thật sự: mật khẩu database, API key. Tính năng nhận diện: <strong>xoay vòng secret tự động (automatic rotation)</strong>, tích hợp sẵn vòng xoay cho RDS và một số dịch vụ. Có phí theo số secret.</li>
+<li><strong>AWS Systems Manager Parameter Store:</strong> lưu tham số cấu hình nói chung (cả giá trị thường lẫn SecureString được mã hóa bằng KMS). Phù hợp cho config, và cũng lưu được secret đơn giản, nhưng <strong>không có cơ chế xoay vòng tự động tích hợp sẵn</strong> như Secrets Manager.</li>
+</ul>
+<p>Nhận diện nhanh: đề nhắc "tự động rotate mật khẩu database" -&gt; <strong>Secrets Manager</strong>, không tranh cãi.</p>
+<h2>Ví dụ đời thường</h2>
+<p>Envelope Encryption giống cách gửi một món đồ quý qua đường bưu điện bằng két sắt hai lớp:</p>
+<ul>
+<li>Bạn khóa món đồ bằng một <strong>chìa khóa nhỏ dùng một lần</strong> (Data Key) — khóa này mở nhanh, tiện cho món đồ to.</li>
+<li>Rồi bạn bỏ chính cái chìa nhỏ đó vào một <strong>két sắt lớn</strong> khóa bằng chìa chủ (KMS key) mà chỉ kho bảo mật KMS mới mở được.</li>
+<li>Gói hàng gửi đi gồm: món đồ đã khóa + két sắt chứa chìa nhỏ đã bị khóa.</li>
+<li>Người nhận muốn mở đồ thì phải nhờ KMS mở két lấy chìa nhỏ ra trước, rồi mới dùng chìa nhỏ mở món đồ.</li>
+</ul>
+<p>Nhờ vậy, chìa chủ không bao giờ phải mang đi khắp nơi, và đổi chìa chủ thì chỉ cần thay cái két — không phải mở hết đồ ra khóa lại.</p>
+<p>Còn hình dung đời thường cho các dịch vụ:</p>
+<ul>
+<li><strong>KMS</strong> giống két sắt của ngân hàng: bạn gửi chìa chủ ở đó, ngân hàng ghi sổ mỗi lần ai tới mở két (CloudTrail log).</li>
+<li><strong>CloudHSM</strong> giống bạn thuê nguyên một hầm két riêng trong ngân hàng, chỉ bạn có chìa hầm, nhân viên ngân hàng cũng không vào được — an toàn tối đa nhưng đắt và tự quản mệt.</li>
+<li><strong>Secrets Manager</strong> giống trợ lý đổi mật khẩu nhà giúp bạn mỗi tháng một lần đều đặn mà bạn không cần nhớ (automatic rotation).</li>
+<li><strong>Parameter Store</strong> giống cuốn sổ tay ghi mọi thông số trong nhà — có ngăn khóa cho vài thứ nhạy cảm, nhưng không ai tự đi đổi khóa giúp bạn.</li>
+</ul>
+<h2>Phân biệt dễ nhầm</h2>
+<h3>AWS Managed Key vs Customer Managed Key</h3>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>AWS managed key</th>
+<th>Customer managed key</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ai tạo</td>
+<td>AWS tạo trong tài khoản của bạn</td>
+<td>Bạn tự tạo</td>
+</tr>
+<tr>
+<td>Tên dạng</td>
+<td><code>aws/s3</code>, <code>aws/ebs</code></td>
+<td>Tên do bạn đặt</td>
+</tr>
+<tr>
+<td>Tự xóa được</td>
+<td>Không</td>
+<td>Có (lên lịch xóa)</td>
+</tr>
+<tr>
+<td>Tự bật rotation</td>
+<td>Không kiểm soát được</td>
+<td>Có, automatic rotation</td>
+</tr>
+<tr>
+<td>Đặt Key Policy riêng</td>
+<td>Hạn chế</td>
+<td>Toàn quyền</td>
+</tr>
+</tbody>
+</table>
+<h3>KMS vs CloudHSM</h3>
+<ul>
+<li>KMS: managed, đa khách hàng (multi-tenant) ở tầng dịch vụ, AWS vận hành, tích hợp sẵn với hầu hết dịch vụ AWS.</li>
+<li>CloudHSM: HSM dedicated riêng cho bạn, bạn tự quản khóa hoàn toàn, dùng khi compliance đặc biệt yêu cầu.</li>
+</ul>
+<h3>Secrets Manager vs Parameter Store</h3>
+<ul>
+<li>Cần <strong>rotation tự động</strong> cho DB credentials -&gt; Secrets Manager.</li>
+<li>Chỉ cần lưu config / tham số, có thể mã hóa bằng KMS -&gt; Parameter Store là đủ.</li>
+</ul>
+<h3>At Rest vs In Transit</h3>
+<ul>
+<li>Dữ liệu nằm trong S3/EBS/RDS -&gt; at rest.</li>
+<li>Dữ liệu đi qua HTTPS/TLS -&gt; in transit.
+Hai lớp độc lập nhau: bật được lớp này không có nghĩa là lớp kia tự có.</li>
+</ul>
+<h2>Bẫy đề thi</h2>
+<ol>
+<li><strong>"Rotate mật khẩu database tự động"</strong> — Chọn Secrets Manager. Parameter Store không có rotation tích hợp sẵn, đây là bẫy so sánh kinh điển.</li>
+<li><strong>KMS key không mã hóa trực tiếp dữ liệu lớn</strong> — Cơ chế đúng là Envelope Encryption với Data Key. Phương án nào nói "dùng KMS key mã hóa trực tiếp file vài GB" là phương án sai về kiến trúc.</li>
+<li><strong>Không dùng được key dù IAM đã cấp đủ quyền</strong> — Thủ phạm thường là <strong>Key Policy</strong> chưa cho phép. Key Policy là nơi kiểm soát chính của KMS key.</li>
+<li><strong>CloudHSM chỉ khi có từ khóa compliance đặc biệt / dedicated</strong> — Đề bình thường mà chọn CloudHSM thay KMS thường là chọn quá tay: đắt và phức tạp không cần thiết.</li>
+<li><strong>Xóa Customer Managed Key là hành động nguy hiểm</strong> — Key bị xóa thì mọi dữ liệu mã hóa bằng key đó (qua data key của nó) sẽ không giải mã được nữa. Vì vậy KMS bắt buộc phải lên lịch xóa và có thời gian chờ, không xóa tức thì.</li>
+<li><strong>Nhầm loại key khi cần kiểm soát chặt</strong> — Yêu cầu "tự quản lý khóa, tự bật rotation, tự audit" phải là Customer Managed Key, không phải AWS managed key.</li>
+</ol>
+<h2>Tóm tắt 5 dòng</h2>
+<p>Mã hóa at rest bảo vệ dữ liệu đang lưu (S3/EBS/RDS), in transit bảo vệ dữ liệu đang truyền (TLS); client-side mã hóa trước khi gửi, server-side mã hóa tại phía AWS.
+KMS dùng Envelope Encryption: Data Key mã hóa dữ liệu, Data Key lại được mã hóa bởi KMS key và lưu kèm dữ liệu.
+Customer Managed Key cho bạn toàn quyền tạo/xóa/đặt Key Policy và bật Automatic Rotation với chu kỳ ở mức khái niệm là 1 năm; Key Policy là nơi kiểm soát chính quyền dùng key.
+CloudHSM là HSM dedicated riêng cho bạn, chỉ chọn khi có yêu cầu compliance đặc biệt; mặc định hãy chọn KMS.
+Secrets Manager chuyên lưu credentials và xoay vòng tự động, Parameter Store lưu tham số cấu hình nói chung và không có rotation tích hợp sẵn.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-11.html">← Bài 11 — Giám Sát: CloudWatch, CloudTrail & AWS Config</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-13.html">Bài 13 — ELB & Auto Scaling Group: High Availability và Co giãn →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-12"; window.QUIZ_DATA = [{"n": 1, "text": "How does AWS KMS encrypt a large file stored in Amazon S3 using envelope encryption?", "options": {"A": "The KMS key directly encrypts the entire file", "B": "A data key encrypts the file, and the data key itself is encrypted by the KMS key", "C": "The file is split and each part is encrypted by a different AWS owned key", "D": "S3 generates a public key and shares the private key with KMS"}, "answer": "B", "explanation": "Giải thích tiếng Việt: Đây là định nghĩa của **Envelope Encryption**: Data Key mã hóa dữ liệu thật, còn Data Key được mã hóa bởi KMS key và lưu kèm dữ liệu. KMS key không bao giờ mã hóa trực tiếp dữ liệu lớn và không rời khỏi KMS."}, {"n": 2, "text": "A company must automatically rotate its RDS database credentials on a regular schedule without custom code. Which service should be used?", "options": {"A": "AWS Systems Manager Parameter Store", "B": "AWS Secrets Manager", "C": "AWS KMS", "D": "AWS CloudHSM"}, "answer": "B", "explanation": "Giải thích tiếng Việt: **Secrets Manager** có tính năng xoay vòng tự động tích hợp sẵn cho credentials của RDS — đúng yêu cầu \"automatic rotation không cần code riêng\". Parameter Store lưu được secret nhưng không có cơ chế rotation tích hợp như vậy."}, {"n": 3, "text": "A developer has an IAM policy that allows full KMS access, but calls to use a specific KMS key are still denied. What is the MOST likely cause?", "options": {"A": "The key is an AWS managed key in another Region", "B": "The Key Policy of that key does not allow the developer to use it", "C": "Automatic rotation is enabled on the key", "D": "The key was created with envelope encryption"}, "answer": "B", "explanation": "Giải thích tiếng Việt: **Key Policy** là nơi kiểm soát chính quyền sử dụng một KMS key. IAM policy cấp quyền là chưa đủ nếu Key Policy trên key không cho phép user đó — đây là bẫy phân quyền kinh điển của KMS."}, {"n": 4, "text": "A regulated company is required to use dedicated, single-tenant hardware security modules under its full control, and AWS personnel must not be able to access the keys. Which service meets this requirement?", "options": {"A": "AWS KMS with customer managed keys", "B": "AWS KMS with AWS managed keys", "C": "AWS CloudHSM", "D": "Amazon S3 server-side encryption with SSE-S3"}, "answer": "C", "explanation": "Giải thích tiếng Việt: Từ khóa \"dedicated, single-tenant HSM, AWS không được truy cập khóa, yêu cầu compliance đặc biệt\" trỏ thẳng tới **CloudHSM**. KMS ở mọi loại key đều là dịch vụ do AWS vận hành, không đáp ứng yêu cầu phần cứng riêng này."}, {"n": 5, "text": "Which statement about customer managed KMS keys is correct?", "options": {"A": "They cannot be deleted by the customer", "B": "They do not support a key policy", "C": "They support automatic key rotation and customer-controlled key policies", "D": "They are the same as AWS owned keys"}, "answer": "C", "explanation": "Giải thích tiếng Việt: Customer Managed Key là loại key bạn toàn quyền: tự tạo, lên lịch xóa được, đặt **Key Policy** riêng và bật **Automatic Rotation**. Các phương án còn lại mô tả sai — hoặc lẫn sang AWS owned / AWS managed key."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

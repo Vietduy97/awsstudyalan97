@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 04 — Lambda và Serverless — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 04 — Lambda và Serverless</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Hiểu Serverless là gì và vì sao nó khác với việc thuê server truyền thống</li>
+<li>Hiểu AWS Lambda hoạt động như thế nào: function, trigger, event, execution role</li>
+<li>Nắm các giới hạn phải thuộc: timeout tối đa 15 phút, RAM 128MB–10GB</li>
+<li>Hiểu mô hình tính tiền Lambda: theo số request + GB-giây</li>
+<li>Biết các nguồn kích hoạt phổ biến: S3, API Gateway, SQS, SNS, EventBridge, DynamoDB</li>
+<li>Hiểu Concurrency và Cold Start ở mức khái niệm, biết yếu tố nào làm tăng/giảm cold start</li>
+<li>Phân biệt rõ khi nào dùng Lambda, khi nào dùng EC2</li>
+<li>Biết Elastic Beanstalk như cầu nối giữa EC2 và thế giới managed</li>
+</ul>
+<h2>Lý thuyết chính</h2>
+<h3>1. Serverless là gì?</h3>
+<p><strong>Serverless</strong> không có nghĩa là "không có server". Server vẫn tồn tại — nhưng <strong>AWS quản lý toàn bộ server thay bạn</strong>: bạn không provision, không patch OS, không lo scale server, không trả tiền cho server đang ngồi chơi. Bạn chỉ tập trung vào code và logic nghiệp vụ.</p>
+<p>Bốn đặc điểm của Serverless mà đề thi hay kiểm tra:</p>
+<ul>
+<li><strong>No server management:</strong> Không có EC2 nào để bạn đăng nhập hay bảo trì.</li>
+<li><strong>Automatically scaling:</strong> Tự scale theo lượng request, từ 0 lên hàng nghìn.</li>
+<li><strong>Pay for value:</strong> Chỉ trả tiền khi code thực sự chạy. Không có request thì không tốn tiền compute.</li>
+<li><strong>Highly available by default:</strong> AWS chạy function trên nhiều AZ trong Region.</li>
+</ul>
+<p>Các dịch vụ serverless tiêu biểu của AWS: <strong>Lambda</strong> (compute), <strong>S3</strong> (storage), <strong>DynamoDB</strong> (database), <strong>API Gateway</strong>, <strong>SQS</strong>, <strong>SNS</strong>, <strong>EventBridge</strong>, <strong>Step Functions</strong>, <strong>Fargate</strong> (serverless container). Ngôi sao của bài này là Lambda.</p>
+<h3>2. AWS Lambda hoạt động như thế nào?</h3>
+<p><strong>AWS Lambda</strong> là dịch vụ <strong>Function as a Service (FaaS)</strong>: bạn tải lên một đoạn code gọi là <strong>Lambda Function</strong> (viết bằng Python, Node.js, Java, Go, C#, Ruby...), và Lambda chỉ chạy đoạn code đó <strong>khi có sự kiện kích hoạt</strong>. Ngoài thời gian chạy đó, function "không tồn tại" và bạn không tốn xu nào.</p>
+<p>Quy trình 4 bước:</p>
+<ol>
+<li>Bạn viết code và tạo Function, chọn <strong>Runtime</strong> (ví dụ Python 3.12), cấu hình Memory và Timeout, và gắn một <strong>Execution Role</strong> (IAM Role) định nghĩa function được phép gọi dịch vụ gì — ví dụ đọc S3, ghi DynamoDB. Đây là ứng dụng trực tiếp của Bài 01: Lambda dùng Role, không dùng Access Key.</li>
+<li>Một <strong>Event (sự kiện)</strong> xảy ra từ một <strong>Trigger (nguồn kích hoạt)</strong>.</li>
+<li>Lambda provision một môi trường chạy (execution environment), thực thi code với dữ liệu của event truyền vào.</li>
+<li>Chạy xong, Lambda tính tiền đúng theo thời gian chạy và bộ nhớ đã cấu hình, rồi môi trường có thể được giữ lại một lúc để tái sử dụng hoặc bị dọn đi.</li>
+</ol>
+<p>Ngoài code tự viết, Lambda còn chạy được <strong>container image</strong> đóng gói sẵn. Function có thể được cấu hình qua các <strong>Environment Variables</strong>, gắn vào VPC nếu cần truy cập tài nguyên private, và có cơ chế <strong>Versions + Aliases</strong> để triển khai an toàn.</p>
+<h3>3. Triggers — ai gọi Lambda dậy?</h3>
+<p>Đây là danh sách phải thuộc, vì đề thi hỏi liên tục:</p>
+<ul>
+<li><strong>Amazon S3:</strong> File vừa được upload lên bucket → Lambda chạy để xử lý. Ví dụ: ảnh vừa tải lên thì tự tạo thumbnail.</li>
+<li><strong>Amazon API Gateway:</strong> Có HTTP request gọi vào API → Lambda xử lý và trả kết quả. Đây là combo xây backend/serverless API kinh điển nhất.</li>
+<li><strong>Amazon SQS:</strong> Có message trong hàng đợi → Lambda được kích hoạt để xử lý message. Lambda tự scale theo độ dài queue.</li>
+<li><strong>Amazon SNS:</strong> Có notification được publish → Lambda xử lý.</li>
+<li><strong>Amazon EventBridge / CloudWatch Events:</strong> Sự kiện theo lịch (cron) hoặc theo sự kiện hệ thống. Ví dụ: cứ 1 giờ chạy Lambda dọn dẹp một lần — thay cho việc để một EC2 chạy 24/7 chỉ để chờ.</li>
+<li><strong>DynamoDB Streams:</strong> Dữ liệu trong bảng DynamoDB thay đổi → Lambda phản ứng.</li>
+<li><strong>CloudWatch Logs, Kinesis, Cognito, Alexa...:</strong> Các nguồn khác ở mức biết tên.</li>
+</ul>
+<p>Điểm chung: Lambda là <strong>event-driven</strong> — bị động chờ sự kiện, không chủ động chạy liên tục.</p>
+<h3>4. Cấu hình quan trọng: Memory, Timeout, và các giới hạn cứng</h3>
+<p>Các con số này là <strong>facts phải thuộc lòng</strong> cho đề thi:</p>
+<ul>
+<li><strong>Timeout tối đa: 15 phút (900 giây).</strong> Một lần chạy của Lambda không bao giờ dài hơn 15 phút. Quá 15 phút, Lambda bị cắt. Workload chạy lâu hơn 15 phút (render video dài, training model, batch job hàng giờ) thì <strong>Lambda không phù hợp</strong> — phải nghĩ tới EC2, ECS/Fargate hoặc Step Functions phối hợp.</li>
+<li><strong>Memory (RAM): từ 128MB đến 10GB.</strong> Bạn chọn RAM, và AWS cấp CPU <strong>tỷ lệ theo RAM</strong> đã chọn — tăng RAM đồng nghĩa tăng cả sức mạnh CPU và tăng giá mỗi giây. Vì vậy đôi khi tăng RAM lại làm tổng chi phí rẻ hơn vì code chạy nhanh hơn hẳn.</li>
+<li><strong>/tmp storage:</strong> Dung lượng đĩa tạm cho function, ở mức cơ bản là 512MB và cấu hình được lớn hơn.</li>
+<li><strong>Deployment package:</strong> Có giới hạn kích thước cho file zip tải trực tiếp; package lớn thì dùng container image hoặc để trên S3.</li>
+</ul>
+<p>Các giới hạn này chính là "luật chơi" để đề thi gài bẫy: cho một tác vụ chạy 30 phút rồi hỏi dùng Lambda được không — đáp án là không.</p>
+<h3>5. Cách Lambda tính tiền</h3>
+<p>Mô hình tính tiền của Lambda gồm hai thành phần:</p>
+<ul>
+<li><strong>Số request:</strong> Tính theo số lần function được gọi (invoke).</li>
+<li><strong>Thời gian chạy tính theo GB-giây (GB-second):</strong> Lấy lượng RAM đã cấu hình (tính theo GB) nhân với thời gian chạy thực tế (tính bằng mili-giây, cộng dồn thành giây). RAM cấu hình càng cao, đơn giá mỗi giây càng cao; code chạy càng lâu, tiền càng nhiều.</li>
+</ul>
+<p>Hệ quả quan trọng: <strong>Không có request thì hóa đơn Lambda bằng 0.</strong> Không có khái niệm "máy đang bật chờ" như EC2 On-Demand. Đây là lý do Lambda cực rẻ cho workload thưa, không đều — và là điểm đối lập hoàn hảo với EC2 trong các câu hỏi Cost-Optimized.</p>
+<h3>6. Concurrency — độ đồng thời</h3>
+<p><strong>Concurrency</strong> là số instance của function đang chạy <strong>cùng một lúc</strong> để xử lý các event đồng thời. 1.000 request đến cùng lúc thì Lambda có thể chạy hàng trăm, hàng nghìn bản sao function song song — tự scale mà bạn không cấu hình server nào cả.</p>
+<p>Các khái niệm cần biết ở mức Associate:</p>
+<ul>
+<li><strong>Default concurrency limit:</strong> Mỗi Region có hạn mức tổng concurrency cho toàn tài khoản (mặc định ở mức 1.000 concurrent executions, có thể yêu cầu tăng qua Service Quotas). Vượt hạn mức thì request bị <strong>throttling</strong> (từ chối/tạm hoãn).</li>
+<li><strong>Reserved Concurrency:</strong> Dành riêng một lượng concurrency cho một function quan trọng, đảm bảo nó luôn có "suất chạy" và đồng thời đặt trần để nó không ăn hết quota của các function khác.</li>
+<li><strong>Provisioned Concurrency:</strong> Trả tiền để giữ sẵn môi trường đã khởi tạo, nhằm <strong>xóa cold start</strong> cho function cần latency ổn định (xem mục dưới).</li>
+</ul>
+<h3>7. Cold Start ở mức khái niệm</h3>
+<p><strong>Cold Start</strong> là độ trễ xảy ra khi Lambda phải <strong>khởi tạo môi trường chạy mới</strong> cho một request: tải code, khởi động runtime, chạy code khởi tạo ngoài handler. Request đầu tiên (hoặc request đến sau một thời gian function không được gọi) sẽ chậm hơn bình thường một chút.</p>
+<p>Các request sau đó được xử lý bởi môi trường đã "ấm" (warm) thì không có cold start — gọi là <strong>Warm Start</strong>.</p>
+<p>Yếu tố ảnh hưởng cold start cần biết:</p>
+<ul>
+<li><strong>Runtime:</strong> Ngôn ngữ biên dịch/khởi động nặng như Java/.NET thường cold start lâu hơn Python/Node.js.</li>
+<li><strong>Memory cấu hình:</strong> RAM càng cao, CPU cấp càng nhiều nên khởi tạo càng nhanh.</li>
+<li><strong>Kích thước package:</strong> Code và thư viện càng cồng kềnh, tải và khởi tạo càng lâu.</li>
+<li><strong>VPC:</strong> Function gắn vào VPC trước đây bị cold start lâu hơn rõ rệt (AWS đã cải thiện nhiều, nhưng đề thi vẫn có thể nhắc VPC làm tăng cold start).</li>
+<li><strong>Cách giảm cold start:</strong> Dùng <strong>Provisioned Concurrency</strong>, chọn runtime nhẹ, giảm kích thước package, tăng memory. Đổi lại, Provisioned Concurrency tốn tiền ngay cả khi không có request — đánh đổi cost lấy latency.</li>
+</ul>
+<p>Cold start chỉ là vấn đề nếu ứng dụng của bạn cực kỳ nhạy cảm với độ trễ (real-time). Với đa số bài toán xử lý file, xử lý queue, cron job — cold start vài trăm mili-giây là không đáng kể.</p>
+<h3>8. Lambda vs EC2 — khi nào dùng cái nào?</h3>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Lambda</th>
+<th>EC2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Quản lý server</td>
+<td>AWS lo hết</td>
+<td>Bạn lo OS, patch, scale</td>
+</tr>
+<tr>
+<td>Thời gian chạy mỗi tác vụ</td>
+<td><strong>Tối đa 15 phút</strong></td>
+<td>Không giới hạn</td>
+</tr>
+<tr>
+<td>Cách tính tiền</td>
+<td>Theo request + GB-giây, không chạy = 0 đồng</td>
+<td>Theo giờ/giây khi instance đang chạy (kể cả lúc rảnh)</td>
+</tr>
+<tr>
+<td>Kích hoạt</td>
+<td>Event-driven (S3, API Gateway, SQS...)</td>
+<td>Chạy liên tục, luôn sẵn sàng</td>
+</tr>
+<tr>
+<td>Scale</td>
+<td>Tự động, gần như tức thì</td>
+<td>Phải cấu hình Auto Scaling</td>
+</tr>
+<tr>
+<td>Phù hợp nhất</td>
+<td>Tác vụ ngắn, theo sự kiện, traffic không đều, API backend nhẹ, xử lý file/message, cron job</td>
+<td>Ứng dụng chạy dài, cần kiểm soát OS, phần mềm đặc thù, workload ổn định 24/7, tác vụ &gt; 15 phút</td>
+</tr>
+</tbody>
+</table>
+<p>Quy tắc chọn nhanh cho đề thi: <strong>ngắn + theo sự kiện + không đều → Lambda. Dài + liên tục + cần kiểm soát → EC2 (hoặc Fargate/ECS).</strong></p>
+<h3>9. Elastic Beanstalk — cầu nối</h3>
+<p><strong>AWS Elastic Beanstalk</strong> không phải serverless — nó là <strong>PaaS</strong> đã gặp ở Bài 00. Bạn chỉ cần tải code ứng dụng web lên, Beanstalk tự provision EC2, Load Balancer, Auto Scaling, monitoring bên dưới và quản lý giúp bạn, nhưng bạn vẫn nhìn thấy và tùy chỉnh được các tài nguyên đó khi cần.</p>
+<p>Vai trò của Beanstalk trong lộ trình học: nó là <strong>cầu nối</strong> cho người mới — chưa cần hiểu sâu từng dịch vụ lẻ như khi dùng EC2 thuần, nhưng cũng chưa "buông hết" như Lambda. Đề thi thường dùng Beanstalk cho scenario: "developer muốn deploy ứng dụng nhanh, không muốn quản lý hạ tầng chi tiết, nhưng ứng dụng là web app chạy liên tục không phù hợp với Lambda 15 phút". Nhớ: Beanstalk <strong>miễn phí dịch vụ</strong>, bạn chỉ trả tiền cho tài nguyên nó tạo ra (EC2, ELB...).</p>
+<h2>Ví dụ đời thường</h2>
+<p><strong>Lambda giống như gọi thợ sửa ống nước theo vụ việc, EC2 giống như thuê một người giúp việc ở hẳn trong nhà.</strong></p>
+<ul>
+<li><strong>EC2</strong> là người giúp việc sống tại nhà: tháng nào cũng trả lương cố định kể cả ngày không có việc gì, được cái gọi phát có mặt ngay và làm việc dài hơi bao lâu cũng được.</li>
+<li><strong>Lambda</strong> là thợ sửa ống nước gọi qua ứng dụng: nhà không rò nước thì không gọi, không tốn đồng nào. Ống nước vỡ (sự kiện S3 upload file, có request API) thì thợ xuất hiện, sửa xong tính tiền đúng số phút sửa nhân với tay nghề (GB-giây), rồi thợ về. Cần 10 thợ cùng lúc vì cả khu chung cư cùng vỡ ống thì ứng dụng điều 10 thợ tới song song — đó là Concurrency.</li>
+<li><strong>Cold Start</strong> là lần đầu gọi thợ vào buổi sáng sớm: thợ cần thời gian mặc đồ, lấy đồ nghề, chạy xe tới nhà — chậm hơn bình thường một chút. Các lần gọi sau trong ngày, thợ đã ở gần khu vực nên tới nhanh — đó là Warm Start. <strong>Provisioned Concurrency</strong> giống như trả tiền giữ một thợ trực sẵn trong tòa nhà 24/7: tốn tiền trực, nhưng có việc là xử lý ngay không chờ đợi.</li>
+<li><strong>Timeout 15 phút</strong> là quy định của hãng thợ: mỗi ca sửa tối đa 15 phút, việc nào cần 2 tiếng thì không gọi thợ theo vụ được — phải thuê đội thi công ở lại dài hạn, tức là EC2/Fargate.</li>
+<li><strong>Trigger</strong> giống như chuông báo: có người bấm chuông cửa (API Gateway nhận request), có thư nhét vào hộp thư (SQS có message), có đồ mới bỏ vào kho (S3 có file) là thợ tự biết việc mà đến làm, không cần ai ngồi canh.</li>
+</ul>
+<h2>Phân biệt dễ nhầm</h2>
+<table>
+<thead>
+<tr>
+<th>Cặp dễ nhầm</th>
+<th>Cách phân biệt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lambda vs EC2</td>
+<td>Lambda event-driven, tối đa 15 phút/lần chạy, không chạy = 0 tiền. EC2 chạy liên tục, trả tiền khi máy bật kể cả lúc rảnh</td>
+</tr>
+<tr>
+<td>Lambda vs Elastic Beanstalk</td>
+<td>Lambda là serverless/FaaS — chỉ có code, không thấy server. Beanstalk là PaaS — vẫn có EC2 bên dưới do AWS provision hộ</td>
+</tr>
+<tr>
+<td>Cold Start vs Warm Start</td>
+<td>Cold Start là lần khởi tạo môi trường mới nên chậm. Warm Start tái sử dụng môi trường đang ấm nên nhanh</td>
+</tr>
+<tr>
+<td>Reserved Concurrency vs Provisioned Concurrency</td>
+<td>Reserved là dành quota + đặt trần concurrency. Provisioned là trả tiền giữ môi trường khởi tạo sẵn để xóa cold start</td>
+</tr>
+<tr>
+<td>Timeout vs Concurrency</td>
+<td>Timeout là giới hạn thời gian của <em>một</em> lần chạy (max 15 phút). Concurrency là số lần chạy <em>song song</em> cùng lúc</td>
+</tr>
+<tr>
+<td>Execution Role vs Resource-based Policy của Lambda</td>
+<td>Execution Role quy định function được gọi ra dịch vụ nào. Resource-based Policy của Lambda quy định ai/dịch vụ nào được gọi vào function</td>
+</tr>
+</tbody>
+</table>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li>Đề cho tác vụ chạy <strong>30 phút / 1 giờ</strong> rồi gợi ý Lambda: sai ngay vì <strong>timeout tối đa 15 phút</strong>. Đáp án đúng thường là EC2, ECS/Fargate, hoặc Step Functions điều phối nhiều bước.</li>
+<li>Đề hỏi cách giảm chi phí cho ứng dụng có traffic rất thưa, vài request mỗi giờ: <strong>Lambda thắng EC2</strong> vì không chạy thì không tốn tiền, trong khi EC2 vẫn tính tiền 24/7.</li>
+<li>Đề hỏi Lambda cần quyền đọc S3: đáp án là gắn <strong>Execution Role (IAM Role)</strong>, tuyệt đối không nhúng Access Key vào Environment Variables — bẫy này nối thẳng với kiến thức Bài 01.</li>
+<li>Đề mô tả function bị <strong>throttling</strong> khi traffic tăng đột biến: nguyên nhân là chạm trần <strong>concurrency limit</strong> của Region/account, cách xử lý là yêu cầu tăng quota hoặc đặt Reserved Concurrency cho function quan trọng.</li>
+<li>Đề hỏi ứng dụng nhạy cảm latency bị chậm ở request đầu tiên sau thời gian dài không ai dùng: đó là <strong>Cold Start</strong>, giải pháp là <strong>Provisioned Concurrency</strong> — nhưng nhớ nó làm tăng chi phí.</li>
+<li>Tăng Memory cho Lambda không chỉ tăng RAM: nó <strong>tăng cả CPU</strong> và có thể làm function chạy nhanh hơn, tổng tiền GB-giây thậm chí giảm. Đề thi thích kiểm tra điểm ngược intuition này.</li>
+<li>Lambda mặc định chạy ngoài VPC. Muốn Lambda truy cập RDS trong private subnet thì phải <strong>gắn Lambda vào VPC</strong> — lúc đó cần cấu hình subnet/security group và lưu ý chuyện truy cập Internet của function.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<p>Serverless nghĩa là AWS quản lý toàn bộ server, bạn chỉ viết code — Lambda là dịch vụ FaaS tiêu biểu, chỉ chạy function khi có event từ trigger như S3, API Gateway, SQS hay EventBridge.
+Giới hạn cứng phải thuộc: timeout tối đa 15 phút, memory 128MB–10GB, và tăng memory cũng đồng nghĩa tăng CPU được cấp.
+Lambda tính tiền theo số request cộng với GB-giây thời gian chạy nhân RAM đã cấu hình, nên không có request thì hóa đơn bằng 0 — ngược hẳn EC2.
+Concurrency là số function chạy song song tự scale theo traffic, còn Cold Start là độ trễ khởi tạo môi trường mới, giảm được bằng Provisioned Concurrency nhưng phải trả thêm tiền.
+Chọn Lambda cho tác vụ ngắn, theo sự kiện, traffic không đều; chọn EC2 cho workload dài hơn 15 phút, chạy liên tục hoặc cần kiểm soát OS; Elastic Beanstalk là PaaS ở giữa hai thế giới này.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-03.html">← Bài 03 — EC2: Máy ảo trên AWS</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-05.html">Bài 05 — S3: Lưu trữ đối tượng (Object Storage) →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-04"; window.QUIZ_DATA = [{"n": 1, "text": "What is the maximum timeout for a single AWS Lambda function execution?", "options": {"A": "5 minutes", "B": "15 minutes", "C": "30 minutes", "D": "60 minutes"}, "answer": "B", "explanation": "15 phút (900 giây) là giới hạn cứng của Lambda — con số bắt buộc thuộc lòng. Bất kỳ workload nào dài hơn đều phải rời Lambda sang EC2/Fargate/Batch hoặc dùng Step Functions chia nhỏ công việc."}, {"n": 2, "text": "A company uploads images to Amazon S3 and wants thumbnails to be created automatically every time a new image is uploaded. Which solution is MOST suitable and cost-effective?", "options": {"A": "Run a dedicated EC2 instance 24/7 that polls the S3 bucket", "B": "Trigger an AWS Lambda function from S3 events to generate the thumbnails", "C": "Use a Reserved Instance to process the images", "D": "Store the images and process them manually at the end of the day"}, "answer": "B", "explanation": "Đây là use case serverless mẫu mực nhất: event S3 kích hoạt Lambda xử lý file ngay khi upload, không tốn tiền lúc không có ảnh nào. Phương án EC2 chạy 24/7 để polling vừa tốn tiền vừa là anti-pattern mà đề thi luôn đặt làm đáp án sai."}, {"n": 3, "text": "How is AWS Lambda priced?", "options": {"A": "By the hour, based on the instance type selected", "B": "By the number of requests and the duration of execution measured in GB-seconds", "C": "By a fixed monthly subscription fee", "D": "By the amount of data stored in the function"}, "answer": "B", "explanation": "Lambda tính tiền theo 2 thành phần: số lần invoke + thời gian chạy tính bằng GB-giây (RAM cấu hình × số giây chạy). Không có khái niệm chọn instance type hay trả theo giờ như EC2."}, {"n": 4, "text": "A video rendering workload takes approximately 45 minutes to complete for each job. A solutions architect is asked whether Lambda is suitable. What is the correct assessment?", "options": {"A": "Lambda is suitable because it automatically scales", "B": "Lambda is suitable if the memory is increased to 10 GB", "C": "Lambda is NOT suitable because its maximum timeout is 15 minutes; a service such as EC2 or Fargate should be used", "D": "Lambda is suitable if Provisioned Concurrency is enabled"}, "answer": "C", "explanation": "45 phút > 15 phút timeout tối đa nên Lambda bị loại ngay từ vòng gửi xe, bất kể tăng RAM (B) hay bật Provisioned Concurrency (D) — hai lựa chọn đó không thay đổi được giới hạn timeout. Đáp án đúng phải chuyển sang dịch vụ chạy dài như EC2 hoặc Fargate."}, {"n": 5, "text": "Users report that an API backed by Lambda is occasionally slow on the first request after long periods of inactivity, but fast afterwards. What phenomenon is this, and how can it be mitigated?", "options": {"A": "Throttling; increase the account concurrency limit", "B": "Cold start; enable Provisioned Concurrency", "C": "Memory leak; increase the function timeout", "D": "Network latency; move the function to another Region"}, "answer": "B", "explanation": "Request đầu tiên sau thời gian dài không dùng bị chậm, các request sau nhanh — đó là dấu hiệu nhận diện kinh điển của Cold Start. Cách giảm chính thống là Provisioned Concurrency (giữ môi trường khởi tạo sẵn, chấp nhận trả thêm phí). Throttling liên quan đến concurrency limit, là hiện tượng khác hẳn."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

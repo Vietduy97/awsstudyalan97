@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 17 — ECS, EKS và Container — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 2 · SAA nâng cao</p>
+  <div class="md-body"><h1>Bài 17 — ECS, EKS và Container</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Phân biệt được Container, VM (EC2) và Lambda ở mức ra quyết định chọn dịch vụ trong đề thi.</li>
+<li>Nắm vững Docker, ECR, ECS với 2 launch types, và các khái niệm Task Definition / Task / Service.</li>
+<li>Biết khi nào chọn EKS, khi nào chọn App Runner, và nhận diện đáp án Fargate khi đề nhắc "least operational overhead" / "minimal management".</li>
+</ul>
+<h2>Lý thuyết chính</h2>
+<h3>1. Ra quyết định: VM vs Container vs Lambda</h3>
+<p>Đây là câu hỏi nền tảng, đề thi không hỏi định nghĩa mà hỏi <strong>scenario → chọn cái nào</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>VM — EC2</th>
+<th>Container — ECS/EKS</th>
+<th>Serverless Function — Lambda</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Đơn vị triển khai</td>
+<td>Cả máy ảo + OS</td>
+<td>Image đóng gói app + dependencies</td>
+<td>Chỉ code hàm</td>
+</tr>
+<tr>
+<td>Ai quản lý OS / patching</td>
+<td>Bạn</td>
+<td>Bạn (EC2 launch type) hoặc AWS (Fargate)</td>
+<td>AWS hoàn toàn</td>
+</tr>
+<tr>
+<td>Thời gian chạy</td>
+<td>Dài hạn, liên tục</td>
+<td>Dài hạn, liên tục</td>
+<td>Ngắn, theo event, tối đa 15 phút / lần chạy</td>
+</tr>
+<tr>
+<td>Scaling</td>
+<td>ASG theo instance</td>
+<td>Theo Task</td>
+<td>Tự động theo request</td>
+</tr>
+<tr>
+<td>Phù hợp khi</td>
+<td>Cần kiểm soát OS, phần mềm legacy, license theo máy</td>
+<td>Đã có Docker workload, microservices, batch dài</td>
+<td>Event-driven, API nhẹ, xử lý file, lịch cron ngắn</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc nhớ nhanh:</strong>
+- Đề nói "lift-and-shift, cần kiểm soát OS" → EC2.
+- Đề nói "đã có Docker image / microservices" → ECS hoặc EKS.
+- Đề nói "chạy code khi có sự kiện, không muốn quản lý server, chạy dưới 15 phút" → Lambda.</p>
+<h3>2. Docker — khái niệm cốt lõi</h3>
+<ul>
+<li><strong>Docker Image:</strong> bản đóng gói bất biến gồm code, runtime, libraries, dependencies. Build 1 lần, chạy giống nhau ở mọi nơi — giải quyết bài toán "chạy được trên máy tôi nhưng không chạy trên server".</li>
+<li><strong>Container:</strong> một instance đang chạy của image. Nhẹ hơn VM vì <strong>chia sẻ kernel của host OS</strong>, không chứa cả Guest OS riêng như VM.</li>
+<li><strong>Dockerfile:</strong> file mô tả cách build image.</li>
+</ul>
+<p>Khác biệt cốt lõi với VM: VM ảo hóa phần cứng (hypervisor), container ảo hóa ở tầng OS → khởi động trong vài giây, mật độ đóng gói cao hơn.</p>
+<h3>3. Amazon ECR — Elastic Container Registry</h3>
+<ul>
+<li>Là <strong>kho chứa Docker image riêng (private registry)</strong> của AWS, tương tự vai trò của S3 đối với file.</li>
+<li>Tích hợp IAM để kiểm soát ai được push/pull image, hỗ trợ scan lỗ hổng bảo mật trên image.</li>
+<li>Luồng chuẩn trong đề: <code>Build Docker image → Push lên ECR → ECS/EKS pull từ ECR để chạy</code>.</li>
+<li>Đừng nhầm ECR với ECS: ECR <strong>lưu</strong> image, ECS <strong>chạy</strong> image.</li>
+</ul>
+<h3>4. Amazon ECS — Elastic Container Service</h3>
+<p>Là <strong>dịch vụ điều phối container (container orchestration) của AWS</strong>, tích hợp sâu với IAM, ALB, CloudWatch, VPC. Đây là đáp án mặc định khi đề nói "chạy container trên AWS" mà không nhắc Kubernetes.</p>
+<p><strong>Ba khái niệm bắt buộc thuộc:</strong></p>
+<ul>
+<li><strong>Task Definition:</strong> bản thiết kế (blueprint) của Task — khai báo image nào (từ ECR), CPU/memory bao nhiêu, port, environment variables, IAM Role cho Task, log configuration. Giống như Launch Template của EC2.</li>
+<li><strong>Task:</strong> một instance đang chạy theo Task Definition — tương đương "một nhóm container chạy cùng nhau". ECS dừng/một Task chết thì có thể thay Task mới.</li>
+<li><strong>Service:</strong> lớp đảm bảo duy trì số lượng Task mong muốn (desired count), gắn với ALB để phân tải, tự thay thế Task bị lỗi, hỗ trợ auto scaling. Muốn ứng dụng chạy ổn định lâu dài → dùng Service, không chạy Task trần.</li>
+</ul>
+<p><strong>Hai launch types — điểm thi quan trọng nhất bài này:</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>EC2 Launch Type</th>
+<th>Fargate Launch Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hạ tầng chạy container</td>
+<td>EC2 instances do <strong>bạn</strong> quản lý trong Cluster</td>
+<td><strong>Serverless</strong> — AWS lo hạ tầng</td>
+</tr>
+<tr>
+<td>Việc bạn phải làm</td>
+<td>Chọn instance type, patch OS, scale cluster, tối ưu packing</td>
+<td>Chỉ khai báo CPU/memory trong Task Definition</td>
+</tr>
+<tr>
+<td>Thanh toán</td>
+<td>Trả tiền EC2 instance (kể cả khi ít Task)</td>
+<td>Trả tiền theo vCPU + memory mà Task thực dùng</td>
+</tr>
+<tr>
+<td>Phù hợp khi</td>
+<td>Cần kiểm soát sâu, cần GPU / instance đặc biệt, muốn dùng Spot / Savings Plans trên instance</td>
+<td>Muốn <strong>least operational overhead</strong>, không muốn quản lý server</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Cụm từ khóa vàng: đề nói <strong>"migrate Docker workloads, minimal management / least operational overhead / no servers to manage" → đáp án là ECS on Fargate</strong>. Đây là pattern lặp lại rất nhiều trong SAA-C03.</p>
+</blockquote>
+<h3>5. Amazon EKS — Elastic Kubernetes Service</h3>
+<ul>
+<li>Là <strong>Kubernetes được quản lý (managed Kubernetes)</strong> trên AWS: AWS quản lý control plane, bạn quản lý hoặc dùng Fargate cho worker nodes / data plane.</li>
+<li>Chọn EKS khi: công ty <strong>đã dùng Kubernetes</strong> ở on-premises hoặc đa cloud, cần tính portable, cần hệ sinh thái Kubernetes (Helm, service mesh), hoặc team đã có kỹ năng Kubernetes.</li>
+<li>Không chọn EKS chỉ vì "nghe mạnh hơn ECS". Nếu đề không nhắc chữ Kubernetes, đáp án thường là ECS — đơn giản hơn, ít overhead hơn.</li>
+</ul>
+<h3>6. AWS App Runner — mức khái niệm</h3>
+<ul>
+<li>Dịch vụ đơn giản nhất để deploy ứng dụng web/API: đưa <strong>source code (GitHub) hoặc container image</strong> vào, App Runner tự build, deploy, scale, cân bằng tải, cấp HTTPS.</li>
+<li>Phù hợp: team nhỏ, web app/API đơn giản, muốn nhanh nhất, không muốn đụng vào VPC/Cluster/ALB.</li>
+<li>Đánh đổi: ít khả năng tùy biến hạ tầng hơn ECS/EKS.</li>
+<li>Thứ tự độ đơn giản tăng dần về kiểm soát (và độ phức tạp): <strong>App Runner (đơn giản nhất) → ECS on Fargate → ECS on EC2 / EKS (kiểm soát cao nhất)</strong>.</li>
+</ul>
+<h2>Ví dụ đời thường</h2>
+<p>Hãy hình dung 3 cách mở quán ăn:</p>
+<ul>
+<li><strong>EC2 như thuê mặt bằng trống:</strong> bạn tự lắp bếp, bàn ghế, điện nước. Kiểm soát tối đa, cực nhất.</li>
+<li><strong>Container như xe bán đồ ăn (food truck) đóng gói sẵn:</strong> bếp đã lắp sẵn trong xe, lái tới đâu bán tới đó, dọn rất nhanh. Docker image chính là chiếc xe đã đóng gói hoàn chỉnh.</li>
+<li><strong>Fargate như thuê ki-ốt trong trung tâm thương mại:</strong> bạn chỉ mang món ăn (image) tới, trung tâm lo mặt bằng, điện nước, bảo trì. Bạn trả tiền theo ki-ốt bạn dùng.</li>
+<li><strong>Lambda như bán hàng theo đơn gọi món:</strong> không có quán, khách gọi món nào bạn mới nấu món đó, xong thì dọn — trả tiền theo món.</li>
+</ul>
+<p>ECR là <strong>kho đậu xe food truck</strong>, ECS là <strong>đội điều phối xe</strong>, EKS là điều phối theo <strong>chuẩn Kubernetes quốc tế</strong> — đội xe của hãng nào cũng đọc được cùng một sổ tay.</p>
+<h2>Phân biệt dễ nhầm</h2>
+<ul>
+<li><strong>ECR vs ECS:</strong> ECR lưu image (registry), ECS chạy container (orchestration). Đề hỏi "store Docker images securely" → ECR. Đề hỏi "run/orchestrate containers" → ECS.</li>
+<li><strong>Task vs Service:</strong> Task là một lần chạy, chết là hết. Service duy trì desired count, tự hồi sinh Task, gắn ALB. Ứng dụng production lâu dài → Service.</li>
+<li><strong>ECS vs EKS:</strong> Cả hai đều chạy container. Chỉ chọn EKS khi đề nhắc <strong>Kubernetes</strong> rõ ràng hoặc yêu cầu portable / multi-cloud. Còn lại mặc định ECS.</li>
+<li><strong>Fargate vs Lambda:</strong> Cả hai đều "serverless", nhưng Fargate chạy <strong>container dài hạn</strong> (web service, API chạy liên tục), Lambda chạy <strong>hàm ngắn theo event</strong> (tối đa 15 phút). Có Docker image chạy 24/7 → Fargate, không phải Lambda.</li>
+<li><strong>App Runner vs Fargate:</strong> App Runner đơn giản hơn nữa — deploy thẳng từ source/image cho web app. Fargate cho bạn kiểm soát Task Definition, VPC, Service chi tiết hơn.</li>
+</ul>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li><strong>Bẫy 1:</strong> Đề mô tả "company has Docker containers, wants to migrate to AWS with minimal operational overhead, no Kubernetes experience" — đáp án cám dỗ là EKS vì nghe "chuẩn". Đáp án đúng: <strong>ECS on Fargate</strong>.</li>
+<li><strong>Bẫy 2:</strong> Đề cho EC2 launch type trong đáp án kèm cụm "serverless" — sai. EC2 launch type không serverless. Chỉ Fargate mới serverless.</li>
+<li><strong>Bẫy 3:</strong> Đề hỏi nơi lưu trữ image private + tích hợp IAM — nhiều bạn chọn S3. Sai, phải là <strong>ECR</strong>.</li>
+<li><strong>Bẫy 4:</strong> Thấy chữ "container" là chọn Kubernetes. SAA mặc định ưu tiên dịch vụ managed của AWS (ECS) trừ khi scenario ép dùng Kubernetes.</li>
+<li><strong>Bẫy 5:</strong> Chọn Lambda cho workload container chạy liên tục 24/7 hoặc chạy quá 15 phút — Lambda không đáp ứng được, phải dùng ECS/Fargate.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<ul>
+<li>Container đóng gói app + dependencies trong image, nhẹ hơn VM vì chia sẻ host kernel; ECR là kho lưu image riêng của AWS.</li>
+<li>ECS là dịch vụ orchestration của AWS: Task Definition là blueprint, Task là instance đang chạy, Service duy trì số Task và gắn ALB.</li>
+<li>ECS có 2 launch types: EC2 (tự quản instance) và Fargate (serverless, AWS lo hạ tầng — least operational overhead).</li>
+<li>EKS chỉ khi đề nhắc Kubernetes / cần portable; App Runner là cách deploy web app từ source/image đơn giản nhất.</li>
+<li>Thấy "migrate Docker workloads, minimal management" → chọn ECS on Fargate.</li>
+</ul></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-16.html">← Bài 16 — CloudFormation: Infrastructure as Code trên AWS</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-18.html">Bài 18 — Disaster Recovery →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-17"; window.QUIZ_DATA = [{"n": 1, "text": "A company has Docker-based microservices running on-premises. The company wants to migrate the containers to AWS with the least operational overhead. The team has no Kubernetes experience and does not want to manage or patch any servers. Which solution meets these requirements?", "options": {"A": "Run the containers on Amazon EKS with self-managed EC2 worker nodes.", "B": "Run the containers on Amazon ECS with the Fargate launch type, storing images in Amazon ECR.", "C": "Repackage each microservice as an AWS Lambda function.", "D": "Install Docker on EC2 instances and manage the containers manually."}, "answer": "B", "explanation": "ECS on Fargate là serverless, AWS quản lý hạ tầng bên dưới nên operational overhead thấp nhất cho Docker workload, và image lưu ở ECR. A sai vì EKS + tự quản worker nodes tốn công nhất và team không có kinh nghiệm Kubernetes. C sai vì microservices chạy liên tục không phù hợp mô hình Lambda theo event, giới hạn 15 phút. D sai vì tự cài Docker trên EC2 là tự quản toàn bộ."}, {"n": 2, "text": "A developer builds a new Docker image for an application and needs a private, AWS-managed repository to store the image, with access controlled by IAM policies and integration with the container orchestration service that will pull the image. Which service should the developer use?", "options": {"A": "Amazon S3", "B": "AWS CodeCommit", "C": "Amazon Elastic Container Registry (Amazon ECR)", "D": "Amazon Elastic Block Store (Amazon EBS)"}, "answer": "C", "explanation": "ECR chính là private container registry của AWS, tích hợp IAM và vulnerability scanning, được ECS/EKS pull image trực tiếp. S3 lưu object/file chứ không phải registry cho Docker image theo chuẩn OCI. CodeCommit lưu source code, EBS là block storage cho EC2 — cả hai đều không liên quan tới container image."}, {"n": 3, "text": "A company already runs Kubernetes clusters on-premises and has a skilled platform team. The company wants to migrate its Kubernetes workloads to AWS while keeping the same Kubernetes tooling and manifests, and wants AWS to manage the Kubernetes control plane. Which solution meets these requirements?", "options": {"A": "Amazon ECS with the EC2 launch type", "B": "AWS App Runner", "C": "Amazon EKS", "D": "AWS Elastic Beanstalk"}, "answer": "C", "explanation": "Từ khóa quyết định là \"already uses Kubernetes\" + \"keep same tooling/manifests\" + \"AWS manages control plane\" → EKS. ECS dùng cơ chế orchestration riêng của AWS, không chạy Kubernetes manifests. App Runner và Elastic Beanstalk không phải Kubernetes."}, {"n": 4, "text": "An ECS Service must ensure that three copies of a web application task are always running, replace any task that fails a health check, and distribute incoming traffic across the tasks. Which ECS components are involved?", "options": {"A": "A Task Definition alone, without a Service", "B": "A Service maintaining the desired count of Tasks defined by a Task Definition, integrated with an Application Load Balancer", "C": "Individual Tasks launched manually from the console", "D": "An ECR repository with three stored images"}, "answer": "B", "explanation": "Service là thành phần duy trì desired count, tự thay Task lỗi và tích hợp ALB để phân tải; Task Definition chỉ là blueprint khai báo image/CPU/memory. Chạy Task trần (A, C) không có cơ chế tự hồi sinh và cân bằng tải. ECR chỉ lưu image, không điều phối Task đang chạy."}, {"n": 5, "text": "A small team wants to deploy a simple web API to AWS as quickly as possible. The team will provide the application source code from a GitHub repository and wants AWS to handle building, deploying, scaling, load balancing, and HTTPS with minimal configuration. Which service is the MOST suitable?", "options": {"A": "Amazon EKS with Fargate profiles", "B": "Amazon ECS with the EC2 launch type", "C": "Self-managed Docker Swarm on EC2 instances", "D": "AWS App Runner"}, "answer": "D", "explanation": "App Runner được thiết kế đúng cho nhu cầu này: nhận source code hoặc image, tự build/deploy/scale/load balancing/HTTPS với cấu hình tối thiểu — đơn giản nhất trong các lựa chọn. EKS và ECS on EC2 đều đòi hỏi cấu hình cluster, VPC, ALB nhiều hơn mức cần thiết cho một web API đơn giản."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

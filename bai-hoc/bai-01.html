@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 01 — IAM và Bảo mật tài khoản — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 01 — IAM và Bảo mật tài khoản</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Hiểu IAM là gì và vì sao domain Security chiếm 30% đề thi SAA-C03</li>
+<li>Phân biệt rõ IAM User, Group, Role, Policy</li>
+<li>Đọc được JSON Policy ở mức cơ bản: Effect, Action, Resource</li>
+<li>Nắm nguyên tắc Least Privilege và cách áp dụng</li>
+<li>Biết cách bảo vệ Root Account: bật MFA, không dùng hằng ngày</li>
+<li>Hiểu IAM Role dùng Temporary Credentials qua STS, khác gì với Access Key cố định</li>
+<li>Biết Federation / SSO với IAM Identity Center và AWS Organizations + SCP ở mức khái niệm</li>
+<li>Nắm Password Policy và Access Key hygiene — không bao giờ lộ key</li>
+</ul>
+<h2>Lý thuyết chính</h2>
+<h3>1. IAM là gì?</h3>
+<p><strong>AWS Identity and Access Management (IAM)</strong> là dịch vụ quản lý danh tính và quyền truy cập vào AWS. IAM là <strong>global service</strong> — không thuộc Region nào, miễn phí, và là thứ bạn phải cấu hình ngay khi tạo tài khoản.</p>
+<p>Câu hỏi cốt lõi IAM trả lời: <strong>Ai (Identity) được làm gì (Permission) trên tài nguyên nào (Resource)?</strong></p>
+<p>Domain <strong>Secure Applications and Architectures chiếm 30%</strong> đề SAA-C03 — cao nhất trong 4 domain. IAM xuất hiện trong gần như mọi scenario.</p>
+<h3>2. Bốn khái niệm trung tâm</h3>
+<p><strong>IAM User:</strong> Một danh tính cụ thể cho một người hoặc một ứng dụng. Mỗi User có username/password để vào Console, và/hoặc Access Key để gọi API/CLI. Một người thật = một User riêng, tuyệt đối không dùng chung User.</p>
+<p><strong>IAM Group:</strong> Một nhóm các User có cùng quyền. Ví dụ: nhóm <code>Developers</code>, nhóm <code>Admins</code>, nhóm <code>Auditors</code>. Gắn Policy vào Group thì mọi User trong Group đều có quyền đó. Group giúp quản lý hàng loạt, tránh gắn quyền từng người một. Lưu ý hay thi: <strong>Group không phải là identity</strong> — không đăng nhập bằng Group được, Group cũng không thể nằm trong Group khác (no nested groups).</p>
+<p><strong>IAM Role:</strong> Khái niệm quan trọng nhất cho đề thi. Role giống User ở chỗ có Policy gắn kèm, nhưng Role <strong>không có password hay Access Key cố định</strong>. Role được "đeo vào" (assume) tạm thời bởi: một User, một ứng dụng chạy trên EC2, một dịch vụ AWS (Lambda, EC2), hoặc người dùng từ hệ thống bên ngoài. Khi Assume Role, bạn nhận được <strong>Temporary Credentials</strong> qua <strong>AWS Security Token Service (STS)</strong> — bộ key này tự hết hạn sau một thời gian ngắn.</p>
+<p><strong>IAM Policy:</strong> Một tài liệu JSON định nghĩa quyền. Policy mới là thứ thực sự nói "được phép" hay "bị cấm". User/Group/Role tự chúng không có quyền gì cho đến khi được gắn Policy.</p>
+<h3>3. JSON Policy ở mức cơ bản</h3>
+<p>Một Policy gồm các <strong>Statement</strong>, mỗi Statement có:</p>
+<pre><code class="language-json">{
+  &quot;Version&quot;: &quot;2012-10-17&quot;,
+  &quot;Statement&quot;: [
+    {
+      &quot;Effect&quot;: &quot;Allow&quot;,
+      &quot;Action&quot;: &quot;s3:GetObject&quot;,
+      &quot;Resource&quot;: &quot;arn:aws:s3:::my-bucket/*&quot;
+    }
+  ]
+}
+</code></pre>
+<ul>
+<li><strong>Effect:</strong> <code>Allow</code> (cho phép) hoặc <code>Deny</code> (cấm). <strong>Explicit Deny luôn thắng Allow</strong> — đây là bẫy kinh điển.</li>
+<li><strong>Action:</strong> Hành động, ví dụ <code>s3:GetObject</code>, <code>ec2:StartInstances</code>, <code>s3:*</code> (mọi hành động của S3).</li>
+<li><strong>Resource:</strong> Tài nguyên áp dụng, viết dạng ARN — ví dụ một S3 bucket cụ thể. Dấu <code>*</code> nghĩa là mọi tài nguyên.</li>
+<li><strong>Condition (tùy chọn):</strong> Điều kiện thêm, ví dụ chỉ cho phép từ một IP nhất định, hoặc bắt buộc có MFA.</li>
+<li><strong>Principal:</strong> Ai được áp dụng — hay gặp trong Resource-based Policy như S3 Bucket Policy.</li>
+</ul>
+<p>Có hai loại Policy hay gặp:
+- <strong>Identity-based Policy:</strong> Gắn vào User/Group/Role.
+- <strong>Resource-based Policy:</strong> Gắn trực tiếp vào tài nguyên, ví dụ S3 Bucket Policy, và có trường <code>Principal</code>.</p>
+<p>Ngoài ra còn có <strong>Managed Policy</strong> (AWS tạo sẵn như <code>AmazonS3ReadOnlyAccess</code>, hoặc bạn tự tạo và tái sử dụng) và <strong>Inline Policy</strong> (nhúng thẳng vào đúng một User/Group/Role, không tái sử dụng được).</p>
+<h3>4. Nguyên tắc Least Privilege</h3>
+<p><strong>Principle of Least Privilege:</strong> Chỉ cấp đúng quyền tối thiểu cần thiết để làm việc, không hơn.</p>
+<p>Ví dụ: nhân viên chỉ cần xem file trong S3 thì chỉ cấp <code>s3:GetObject</code> trên đúng bucket đó, không cấp <code>s3:*</code> hay tệ hơn là <code>AdministratorAccess</code>.</p>
+<p>Đề thi rất thích tình huống: "Làm sao giảm rủi ro mà vẫn cho developer làm việc?" — đáp án thường là áp dụng Least Privilege, dùng IAM Role, bật MFA, dùng Policy có <code>Resource</code> giới hạn cụ thể thay vì <code>*</code>.</p>
+<p>Công cụ hỗ trợ: <strong>IAM Access Analyzer</strong> (tìm quyền thừa, tài nguyên bị share ra ngoài), <strong>IAM Policy Simulator</strong> (test policy trước khi áp dụng), <strong>Access Advisor</strong> (xem dịch vụ nào User thực sự đã dùng để thu hẹp quyền).</p>
+<h3>5. Bảo vệ Root Account — việc số 1 ngày đầu tiên</h3>
+<p><strong>Root Account</strong> là tài khoản chủ tạo ra khi đăng ký AWS, có quyền không giới hạn, kể cả đóng tài khoản, đổi thông tin thanh toán. Root <strong>không thể bị giới hạn bởi IAM Policy</strong>.</p>
+<p>Checklist bảo vệ Root:
+- <strong>Bật MFA (Multi-Factor Authentication) cho Root ngay lập tức</strong> — ưu tiên hardware key hoặc authenticator app.
+- <strong>Không dùng Root cho công việc hằng ngày.</strong> Tạo IAM User / dùng IAM Identity Center cho việc thường ngày, cất Root đi.
+- <strong>Không tạo Access Key cho Root.</strong> Nếu đã tạo thì xóa ngay.
+- Đặt password Root mạnh, duy nhất, lưu trong password manager.
+- Bật cảnh báo billing để phát hiện bất thường sớm.</p>
+<p>MFA là lớp bảo vệ thứ hai ngoài password: cái bạn biết (password) + cái bạn có (mã từ điện thoại/hardware key).</p>
+<h3>6. IAM Role và Temporary Credentials qua STS</h3>
+<p>Vì sao đề thi luôn ưu tiên Role hơn Access Key cố định?</p>
+<ul>
+<li>Access Key của IAM User là <strong>long-term credentials</strong> — không tự hết hạn, lộ là nguy hiểm dài hạn.</li>
+<li>Role cho ra <strong>temporary credentials</strong> qua <strong>STS (Security Token Service)</strong>, lệnh hay gặp là <code>AssumeRole</code>. Credentials này hết hạn sau vài phút đến vài giờ, lộ cũng ít thiệt hại hơn, và tự động được xoay (rotate).</li>
+</ul>
+<p>Case kinh điển nhất định phải nhớ: <strong>EC2 cần gọi S3</strong>. Cách đúng: tạo IAM Role có quyền S3, gắn vào EC2 qua <strong>Instance Profile</strong>. Tuyệt đối không hard-code Access Key vào code trên EC2. Tương tự: Lambda gọi DynamoDB cũng dùng Execution Role của Lambda.</p>
+<p>STS còn dùng cho <strong>Federation</strong> và cross-account access.</p>
+<h3>7. Federation / SSO với IAM Identity Center</h3>
+<p><strong>Federation</strong> là việc dùng danh tính từ hệ thống bên ngoài (ví dụ tài khoản công ty, Microsoft Active Directory, Google Workspace) để đăng nhập AWS mà không cần tạo IAM User riêng cho từng người.</p>
+<p><strong>AWS IAM Identity Center</strong> (tên cũ là AWS SSO) là dịch vụ Single Sign-On được AWS khuyến nghị hiện nay: người dùng đăng nhập một lần qua Identity Center, sau đó được cấp quyền tạm thời vào nhiều AWS Account. Đây là cách quản lý người dùng ở quy mô công ty — không phải tạo hàng trăm IAM User thủ công.</p>
+<h3>8. AWS Organizations và SCP ở mức khái niệm</h3>
+<p>Khi công ty có nhiều AWS Account, dùng <strong>AWS Organizations</strong> để quản lý tập trung: một <strong>Management Account</strong> quản lý nhiều <strong>Member Accounts</strong>, có thể gom vào <strong>Organizational Units (OU)</strong> như OU Production, OU Development.</p>
+<p><strong>Service Control Policies (SCP):</strong> Policy ở tầng Organization, đặt ra "hàng rào" quyền tối đa cho các account bên dưới. SCP <strong>không cấp quyền</strong>, nó chỉ <strong>giới hạn</strong> quyền tối đa. Ví dụ: SCP cấm dùng Region ngoài Singapore, hoặc cấm tắt CloudTrail — dù Admin trong account con có gắn AdministratorAccess cũng không vượt qua được SCP. Keyword đề thi: SCP = guardrail, không phải grant.</p>
+<h3>9. Password và Access Key hygiene</h3>
+<ul>
+<li>Đặt <strong>IAM Password Policy:</strong> độ dài tối thiểu, yêu cầu ký tự đặc biệt, bắt đổi sau X ngày, không cho dùng lại mật khẩu cũ.</li>
+<li><strong>Access Key:</strong> Mỗi User tối đa 2 Access Key để tiện rotate. Phải <strong>rotate định kỳ</strong>, xóa key không dùng, không bao giờ commit key lên GitHub, không để key trong code, không chia sẻ qua email/chat.</li>
+<li><strong>Tuyệt đối không lộ Access Key.</strong> Lộ key là kẻ xấu có thể đào coin, tạo tài nguyên tốn hàng nghìn đô trong vài giờ.</li>
+<li>Dùng <strong>IAM Credential Report</strong> để kiểm kê ai có key nào, key nào lâu không dùng.</li>
+<li>Ưu tiên theo thứ tự: Temporary Credentials (Role/STS) &gt; IAM Identity Center &gt; IAM User có MFA. Tránh long-term Access Key khi có thể.</li>
+</ul>
+<h2>Ví dụ đời thường</h2>
+<p><strong>IAM giống như hệ thống thẻ ra vào và chìa khóa trong một tòa nhà văn phòng.</strong></p>
+<ul>
+<li><strong>Root Account</strong> là chủ tòa nhà, giữ chìa khóa tổng mở được mọi phòng kể cả phòng két tiền. Bạn không đưa chìa khóa tổng cho nhân viên đi làm hằng ngày — bạn cất nó trong két và chỉ lấy ra khi thật cần. Đó là lý do không dùng Root hằng ngày và phải bật MFA cho Root.</li>
+<li><strong>IAM User</strong> là mỗi nhân viên có một thẻ riêng ghi tên mình. Mất thẻ của ai thì khóa thẻ người đó, không ảnh hưởng người khác. Dùng chung thẻ giống như cả công ty dùng chung một mật khẩu — có chuyện gì không biết ai làm.</li>
+<li><strong>IAM Group</strong> là phòng ban: thẻ của phòng Kế toán mở được phòng Kế toán, thẻ của phòng Kỹ thuật mở được phòng Server. Đổi quyền cả phòng thì chỉ sửa một lần ở Group Policy.</li>
+<li><strong>IAM Policy</strong> là tờ quy định dán trên cửa: "Thẻ này được mở phòng A, B từ 8h–17h, cấm vào phòng két."</li>
+<li><strong>IAM Role</strong> giống như thẻ khách tạm thời ở lễ tân: khách đến họp thì nhận thẻ thăm, thẻ chỉ mở đúng phòng họp và tự hết giá trị cuối ngày. Nhân viên giao hàng (giống EC2) cũng nhận thẻ tạm như vậy, thay vì được cấp chìa khóa vĩnh viễn — đó chính là Temporary Credentials qua STS.</li>
+<li><strong>Least Privilege</strong> là thực tế ở Việt Nam: giúp việc theo giờ chỉ có chìa khóa cổng, không có chìa khóa phòng ngủ và két sắt. Cần gì cấp nấy thôi.</li>
+</ul>
+<h2>Phân biệt dễ nhầm</h2>
+<table>
+<thead>
+<tr>
+<th>Cặp dễ nhầm</th>
+<th>Cách phân biệt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>User vs Role</td>
+<td>User có password/key cố định, là danh tính lâu dài. Role không có key cố định, được assume tạm thời, cho ra temporary credentials</td>
+</tr>
+<tr>
+<td>Group vs Role</td>
+<td>Group chứa User để gắn quyền hàng loạt. Role là danh tính tạm được người/dịch vụ đeo vào</td>
+</tr>
+<tr>
+<td>Authentication vs Authorization</td>
+<td>Authentication (AuthN) = bạn là ai (đăng nhập). Authorization (AuthZ) = bạn được làm gì (Policy)</td>
+</tr>
+<tr>
+<td>IAM Policy vs SCP</td>
+<td>IAM Policy cấp/giới hạn quyền trong account. SCP ở tầng Organizations chỉ đặt trần tối đa, không tự cấp quyền</td>
+</tr>
+<tr>
+<td>MFA vs Password Policy</td>
+<td>Password Policy quy định mật khẩu mạnh thế nào. MFA là lớp xác thực thứ hai sau mật khẩu</td>
+</tr>
+<tr>
+<td>Identity-based vs Resource-based Policy</td>
+<td>Identity-based gắn vào User/Role. Resource-based gắn vào tài nguyên (S3 bucket) và có Principal</td>
+</tr>
+</tbody>
+</table>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li><strong>Explicit Deny luôn thắng mọi Allow.</strong> Nếu có một Statement Deny áp dụng, kết quả cuối cùng là Deny dù có bao nhiêu Allow khác.</li>
+<li>Đề hỏi "cách an toàn nhất cho EC2 truy cập S3": đáp án đúng là <strong>IAM Role + Instance Profile</strong>, sai là "tạo IAM User rồi nhúng Access Key vào code" — lựa chọn chứa Access Key hard-code gần như luôn là đáp án sai.</li>
+<li>Đề hỏi việc đầu tiên sau khi tạo tài khoản mới: <strong>bật MFA cho Root, tạo user quản trị riêng, không dùng Root</strong>.</li>
+<li>SCP không cấp quyền: nếu một User không có IAM Policy nào cho phép, SCP có Allow cũng không giúp User làm được việc. SCP chỉ lọc bớt quyền.</li>
+<li>IAM là <strong>global service</strong>, không chọn Region cho IAM. Câu hỏi đánh lừa về "IAM ở Region nào" — trả lời là global.</li>
+<li>Đề cho scenario công ty có 500 nhân viên, muốn đăng nhập AWS bằng tài khoản công ty sẵn có: đáp án là <strong>Federation / IAM Identity Center</strong>, không phải tạo 500 IAM User.</li>
+<li>Nhớ: Group không chứa được Group, Role không có password.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<p>IAM quản lý ai được làm gì trên tài nguyên nào, gồm User (danh tính lâu dài), Group (nhóm User), Role (danh tính tạm) và Policy (tài liệu JSON định nghĩa quyền).
+Policy có Effect Allow/Deny, Action và Resource — Explicit Deny luôn thắng, và phải luôn áp dụng Least Privilege: chỉ cấp quyền tối thiểu.
+Root Account có quyền tuyệt đối nên phải bật MFA, không tạo Access Key cho Root và không dùng Root cho việc hằng ngày.
+Role cho ra Temporary Credentials qua STS và là cách đúng cho EC2/Lambda gọi dịch vụ AWS khác — không bao giờ hard-code Access Key.
+IAM Identity Center lo SSO/Federation cho nhiều người, AWS Organizations + SCP đặt hàng rào quản trị cho nhiều account.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-00.html">← Bài 00 — Cloud Computing là gì? Giới thiệu AWS</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-02.html">Bài 02 — Billing và Free Tier an toàn →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-01"; window.QUIZ_DATA = [{"n": 1, "text": "A company wants its Amazon EC2 instances to access Amazon S3 securely without storing long-term credentials on the instances. What is the BEST solution?", "options": {"A": "Create an IAM user and embed the access keys in the application code", "B": "Create an IAM role with S3 permissions and attach it to the EC2 instances via an instance profile", "C": "Store the root account credentials in a configuration file on the instances", "D": "Make the S3 bucket public so no credentials are needed"}, "answer": "B", "explanation": "Đây là case kinh điển nhất của IAM trong đề thi. IAM Role + Instance Profile cho EC2 nhận Temporary Credentials tự động xoay, không cần lưu key. A và C là hard-code long-term credentials/root — luôn sai. D làm lộ dữ liệu, sai hoàn toàn về bảo mật."}, {"n": 2, "text": "Which of the following actions should be taken FIRST to secure a new AWS account's root user?", "options": {"A": "Create access keys for the root user for programmatic access", "B": "Enable Multi-Factor Authentication (MFA) for the root user", "C": "Use the root user for daily administrative tasks", "D": "Share the root credentials with the development team"}, "answer": "B", "explanation": "Việc đầu tiên với Root là bật MFA. Tạo Access Key cho Root (A), dùng Root hằng ngày (C) và chia sẻ Root (D) đều là những điều sách giáo khoa dặn tuyệt đối không làm."}, {"n": 3, "text": "An IAM policy contains an Allow statement for all S3 actions, but another policy contains an explicit Deny for `s3:DeleteBucket`. What is the effective permission for deleting a bucket?", "options": {"A": "Allowed, because Allow takes precedence", "B": "Denied, because an explicit Deny overrides any Allow", "C": "Allowed only with MFA", "D": "Denied only during business hours"}, "answer": "B", "explanation": "Nguyên tắc đánh giá quyền của IAM: Explicit Deny thắng tất cả. Dù có Allow `s3:*` thì một Deny rõ ràng cho `s3:DeleteBucket` vẫn khiến hành động bị cấm."}, {"n": 4, "text": "A company with multiple AWS accounts wants to set a maximum permissions boundary so that no account can disable AWS CloudTrail, even if an administrator in a member account tries to allow it. Which feature should they use?", "options": {"A": "IAM inline policies", "B": "Service Control Policies (SCPs) in AWS Organizations", "C": "S3 Bucket Policies", "D": "Security Groups"}, "answer": "B", "explanation": "SCP trong AWS Organizations là guardrail ở tầng tổ chức: nó đặt trần quyền tối đa cho member account. Lưu ý SCP không cấp quyền, nó chỉ giới hạn — và Admin trong account con cũng không vượt qua được SCP của Management Account."}, {"n": 5, "text": "What is the main security benefit of using IAM Roles compared to IAM User access keys?", "options": {"A": "Roles provide permanent credentials that never expire", "B": "Roles provide temporary credentials that automatically expire", "C": "Roles do not require any policies", "D": "Roles bypass the need for MFA"}, "answer": "B", "explanation": "Điểm mạnh cốt lõi của Role là Temporary Credentials qua STS: tự hết hạn, tự xoay, giảm thiểu rủi ro khi lộ. A nói ngược sự thật, C và D đều sai — Role vẫn cần Policy và vẫn kết hợp được với MFA."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 19 — Tối Ưu Chi Phí — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 2 · SAA nâng cao</p>
+  <div class="md-body"><h1>Bài 19 — Tối Ưu Chi Phí</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Nắm tư duy Cost-Optimized theo AWS Well-Architected Framework: đáp ứng đủ yêu cầu với chi phí thấp nhất, không phải cắt chi phí bằng mọi giá.</li>
+<li>Phân biệt đúng 5 công cụ quản lý chi phí: Cost Explorer, AWS Budgets, Cost and Usage Report, Trusted Advisor, Compute Optimizer.</li>
+<li>Thuộc các đòn bẩy tiết kiệm ở 3 tầng: compute (Savings Plans, Spot, On-Demand), storage (S3 Lifecycle, gp3) và network (NAT Gateway, VPC Endpoint, CloudFront), cùng việc dọn tài nguyên mồ côi.</li>
+</ul>
+<h2>Lý thuyết chính</h2>
+<h3>1. Tư duy cost theo Well-Architected</h3>
+<p>Domain Cost-Optimized (20% đề thi) không hỏi "cái nào rẻ nhất tuyệt đối" mà hỏi: <strong>"most cost-effective" cho đúng workload trong scenario</strong>. Ba nguyên tắc xuyên suốt:</p>
+<ul>
+<li><strong>Đo trước, tối ưu sau:</strong> không biết tiền đi đâu thì không tối ưu được — dùng công cụ phân tích chi phí trước khi ra quyết định.</li>
+<li><strong>Cam kết đổi lấy giảm giá:</strong> workload chạy ổn định, đoán trước được → cam kết sử dụng (Savings Plans) để được giá thấp. Workload ngắn hạn/bất định → On-Demand.</li>
+<li><strong>Khớp tài nguyên với nhu cầu (right-sizing) và xóa lãng phí:</strong> instance quá khổ, volume mồ côi, dữ liệu lạnh để ở tier nóng đều là tiền rò rỉ.</li>
+</ul>
+<h3>2. Năm công cụ quản lý chi phí — phân biệt theo câu hỏi đề</h3>
+<table>
+<thead>
+<tr>
+<th>Công cụ</th>
+<th>Trả lời câu hỏi</th>
+<th>Đặc điểm ghi nhớ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AWS Cost Explorer</strong></td>
+<td>"Tiền đang tiêu vào đâu, xu hướng thế nào?"</td>
+<td>Phân tích/trực quan hóa chi phí theo dịch vụ, tài khoản, tag; có dự báo (forecast)</td>
+</tr>
+<tr>
+<td><strong>AWS Budgets</strong></td>
+<td>"Khi nào tôi cần được cảnh báo?"</td>
+<td>Đặt ngân sách, <strong>cảnh báo (alert)</strong> khi chi phí thực tế/dự báo vượt ngưỡng, có thể gắn hành động</td>
+</tr>
+<tr>
+<td><strong>Cost and Usage Report (CUR)</strong></td>
+<td>"Cho tôi dữ liệu chi phí chi tiết nhất"</td>
+<td>Báo cáo <strong>chi tiết nhất (most detailed)</strong>, xuất ra S3, phân tích bằng Athena/QuickSight</td>
+</tr>
+<tr>
+<td><strong>AWS Trusted Advisor</strong></td>
+<td>"AWS khuyến nghị tôi sửa gì?"</td>
+<td>Đưa khuyến nghị theo nhiều trụ cột: cost optimization, performance, security, fault tolerance — ví dụ EC2 idle, volume mồ côi</td>
+</tr>
+<tr>
+<td><strong>AWS Compute Optimizer</strong></td>
+<td>"Instance nào đang quá khổ/quá nhỏ?"</td>
+<td>Phân tích metrics thực tế và <strong>khuyến nghị rightsize</strong> cho EC2, ASG, Lambda, EBS...</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Bẫy phân biệt kinh điển: "alert when spending exceeds threshold" → <strong>Budgets</strong>. "most detailed billing data" → <strong>CUR</strong>. "visualize and analyze costs" → <strong>Cost Explorer</strong>. "recommendation to rightsize instances" → <strong>Compute Optimizer</strong>.</p>
+</blockquote>
+<h3>3. Đòn bẩy compute</h3>
+<p><strong>Savings Plans (SP)</strong> — cam kết mức sử dụng (USD/giờ) trong 1 hoặc 3 năm để được giảm giá so với On-Demand. Ba loại cần thuộc:</p>
+<ul>
+<li><strong>Compute Savings Plans:</strong> <strong>linh hoạt nhất (most flexible)</strong> — áp dụng cho EC2 (mọi family, mọi Region), Fargate và Lambda; đổi instance family/Region vẫn được hưởng.</li>
+<li><strong>EC2 Instance Savings Plans:</strong> cam kết theo <strong>instance family + Region</strong> cụ thể → linh hoạt thấp hơn nhưng <strong>giảm sâu hơn</strong> Compute SP.</li>
+<li><strong>SageMaker Savings Plans:</strong> dành cho Amazon SageMaker.</li>
+</ul>
+<p>Nguyên tắc chọn: workload ổn định nhưng có thể đổi cấu hình/Region → Compute SP. Workload cố định family + Region dài hạn → EC2 Instance SP để giảm tối đa.</p>
+<p><strong>Spot Instances</strong> — dùng năng lực EC2 dư thừa với giá giảm sâu, đổi lại <strong>có thể bị AWS thu hồi (interruption)</strong> khi AWS cần lại capacity. Chỉ phù hợp workload <strong>chịu được gián đoạn</strong>: batch processing, CI/CD, xử lý ảnh/video, job chạy lại được, workload stateless có checkpoint. <strong>Tuyệt đối không</strong> dùng Spot cho database production, ứng dụng không được phép dừng giữa chừng.</p>
+<p><strong>On-Demand</strong> — giá niêm yết, không cam kết, bật/tắt tùy ý. Phù hợp: workload <strong>ngắn hạn</strong>, dev/test, ứng dụng mới chưa đoán được nhu cầu, spike bất định. Đề nói "short-term, unpredictable, cannot be interrupted" → On-Demand (không phải Spot, chưa đủ ổn định để mua SP).</p>
+<p>Các đòn bẩy phụ: rightsize instance theo Compute Optimizer, tắt tài nguyên dev ngoài giờ làm việc, chọn Graviton khi phù hợp.</p>
+<h3>4. Đòn bẩy storage</h3>
+<ul>
+<li><strong>S3 Lifecycle Policies:</strong> tự động chuyển object sang tier rẻ hơn theo tuổi dữ liệu hoặc xóa khi hết hạn. Chuỗi quen thuộc: S3 Standard → Standard-IA → Glacier Instant/Flexible → Glacier Deep Archive → Expire.</li>
+<li><strong>S3 Intelligent-Tiering:</strong> dành cho dữ liệu <strong>không đoán được pattern truy cập</strong> — S3 tự theo dõi và chuyển object giữa các tier theo hành vi truy cập thực tế. Đề nói "unknown or changing access patterns" → Intelligent-Tiering.</li>
+<li><strong>EBS gp3 thay gp2:</strong> gp3 là thế hệ mới hơn, <strong>rẻ hơn gp2 và hiệu năng tốt hơn</strong>, cho phép cấu hình IOPS/throughput độc lập với dung lượng. Đề hỏi nâng cấp volume "cost-effective" → chuyển gp2 → gp3 gần như luôn đúng.</li>
+<li><strong>Dọn tài nguyên mồ côi (orphaned resources):</strong> EBS volume <strong>không gắn</strong> vào instance nào, <strong>snapshot cũ</strong> không còn cần, <strong>Elastic IP thừa</strong> không gắn (EIP không dùng bị tính phí). Trusted Advisor giúp phát hiện các mục này.</li>
+</ul>
+<h3>5. Đòn bẩy network — phần hay bị quên nhất</h3>
+<ul>
+<li><strong>NAT Gateway tính phí theo giờ + theo GB dữ liệu đi qua.</strong> Instance trong private subnet gọi ra internet / gọi tới S3 qua NAT Gateway đều tốn tiền xử lý dữ liệu.</li>
+<li><strong>VPC Gateway Endpoint cho S3 và DynamoDB là MIỄN PHÍ:</strong> traffic từ VPC tới S3/DynamoDB đi qua Gateway Endpoint sẽ <strong>không qua NAT Gateway</strong>, vừa rẻ hơn vừa private hơn. Đây là đáp án kinh điển cho scenario "chi phí NAT Gateway tăng vọt vì EC2 trong private subnet tải dữ liệu từ S3".</li>
+<li>Lưu ý: Gateway Endpoint chỉ có cho <strong>S3 và DynamoDB</strong>. Các dịch vụ AWS khác dùng Interface Endpoint (PrivateLink) — có tính phí.</li>
+<li><strong>Data transfer ra internet đắt:</strong> truyền dữ liệu ra ngoài AWS (egress) tốn phí đáng kể. <strong>CloudFront giúp giảm chi phí</strong> vì nội dung được cache ở edge location, giảm lượng dữ liệu gốc phải truyền từ Region và giảm tải cho origin.</li>
+<li>Nguyên tắc phụ: giữ traffic trong cùng AZ/Region khi có thể, tránh truyền cross-Region không cần thiết.</li>
+</ul>
+<h3>6. Cost Allocation Tags</h3>
+<ul>
+<li>Gắn tag (ví dụ <code>Project</code>, <code>Team</code>, <code>Environment</code>) lên tài nguyên, kích hoạt trong Billing để <strong>theo dõi và phân bổ chi phí theo team/dự án/môi trường</strong>.</li>
+<li>Đề hỏi "track costs by project/department" hoặc "chargeback/showback" → đáp án là Cost Allocation Tags + Cost Explorer/CUR để báo cáo.</li>
+<li>Lưu ý thực tế: tag chỉ có tác dụng theo dõi sau khi được <strong>activate</strong> trong Billing console, và chỉ áp dụng cho chi phí phát sinh sau đó.</li>
+</ul>
+<h2>Ví dụ đời thường</h2>
+<p>Tối ưu chi phí AWS giống quản lý chi tiêu một nhà hàng:</p>
+<ul>
+<li><strong>Cost Explorer</strong> là sổ thu chi có biểu đồ — nhìn là biết tiền hao nhất ở bếp, mặt bằng hay nhân sự.</li>
+<li><strong>AWS Budgets</strong> là chuông báo: "tháng này tiêu quá 80% ngân sách thì nhắn tin cho chủ quán".</li>
+<li><strong>CUR</strong> là hóa đơn chi tiết từng dòng — mua bao nhiêu hành, ngày nào, giá nào — để kế toán soi tận gốc.</li>
+<li><strong>Savings Plans</strong> như ký hợp đồng mua gạo cả năm với giá sỉ: rẻ hơn hẳn mua lẻ mỗi ngày (On-Demand), nhưng phải chắc chắn là quán dùng hết.</li>
+<li><strong>Spot</strong> như mua thực phẩm cuối ngày ở chợ đầu mối giảm giá sâu — ngon rẻ, nhưng có thể bị người khác mua mất bất cứ lúc nào, nên chỉ hợp cho món chế biến được ngay, không hợp để hứa với khách đặt tiệc.</li>
+<li><strong>NAT Gateway</strong> như thuê shipper ngoài theo chuyến + theo cân nặng; còn <strong>Gateway Endpoint tới S3</strong> như lối đi nội bộ miễn phí xuống kho của chính bạn — tội gì cứ gọi shipper.</li>
+<li><strong>Volume mồ côi</strong> như tủ lạnh vẫn cắm điện trong kho dù quán đã bỏ món đó từ lâu — không ai dùng mà tiền điện vẫn chạy.</li>
+</ul>
+<h2>Phân biệt dễ nhầm</h2>
+<ul>
+<li><strong>Cost Explorer vs CUR:</strong> Explorer để <strong>nhìn và phân tích nhanh</strong> trên console; CUR là <strong>dữ liệu thô chi tiết nhất</strong> xuất ra S3 để tự phân tích sâu. "Most detailed" → CUR.</li>
+<li><strong>Budgets vs Cost Explorer:</strong> Explorer phân tích quá khứ/xu hướng; Budgets là <strong>ngưỡng + cảnh báo + hành động</strong>. Có chữ "alert/notify when exceeds" → Budgets.</li>
+<li><strong>Trusted Advisor vs Compute Optimizer:</strong> Trusted Advisor bao quát nhiều trụ cột (cost, security, performance...). Compute Optimizer chuyên sâu vào <strong>rightsize tài nguyên compute</strong> dựa trên metrics. Hỏi rightsize EC2 cụ thể → Compute Optimizer.</li>
+<li><strong>Compute SP vs EC2 Instance SP:</strong> Compute SP linh hoạt nhất (đổi family, Region, áp dụng cả Fargate/Lambda). EC2 Instance SP khóa family + Region nhưng giảm sâu hơn. Đề nhấn "flexibility" → Compute SP; nhấn "greatest discount, workload will not change" → EC2 Instance SP.</li>
+<li><strong>Spot vs On-Demand:</strong> Cùng là trả theo giờ không cam kết dài, nhưng Spot <strong>bị thu hồi được</strong>. Workload "cannot tolerate interruption" → loại Spot ngay.</li>
+<li><strong>Gateway Endpoint vs Interface Endpoint:</strong> Gateway Endpoint miễn phí, chỉ cho S3 và DynamoDB. Interface Endpoint (PrivateLink) cho các dịch vụ khác và <strong>có tính phí</strong>.</li>
+</ul>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li><strong>Bẫy 1:</strong> Scenario EC2 private subnet tốn phí NAT Gateway vì download dữ liệu S3 liên tục — đáp án cám dỗ là "mua NAT Gateway lớn hơn" hoặc "chuyển instance ra public subnet" (phá vỡ bảo mật). Đáp án đúng: <strong>VPC Gateway Endpoint cho S3 (miễn phí)</strong>.</li>
+<li><strong>Bẫy 2:</strong> Đề cho workload "fault-tolerant batch job, can be interrupted and resumed" mà không chọn Spot — bỏ lỡ đáp án rẻ nhất. Ngược lại, workload database/stateful quan trọng mà chọn Spot là sai chết người.</li>
+<li><strong>Bẫy 3:</strong> Hỏi "most detailed cost and usage data" lại chọn Cost Explorer vì quen mắt — phải chọn <strong>CUR</strong>.</li>
+<li><strong>Bẫy 4:</strong> Workload mới, nhu cầu chưa rõ, chạy vài tuần thử nghiệm — lại đi mua Savings Plans 3 năm. Chưa ổn định thì On-Demand trước.</li>
+<li><strong>Bẫy 5:</strong> Quên các khoản rò rỉ âm thầm: EBS volume unattached, snapshot cũ, Elastic IP không gắn. Câu hỏi "identify unused resources to reduce cost" thường nhắm vào nhóm này và Trusted Advisor.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<ul>
+<li>Công cụ: Cost Explorer phân tích, Budgets cảnh báo theo ngưỡng, CUR chi tiết nhất, Trusted Advisor khuyến nghị, Compute Optimizer rightsize.</li>
+<li>Compute: Compute SP linh hoạt nhất, EC2 Instance SP giảm sâu nhất theo family+Region; Spot cho workload chịu được gián đoạn, On-Demand cho ngắn hạn/bất định.</li>
+<li>Storage: S3 Lifecycle chuyển tier theo tuổi, Intelligent-Tiering cho pattern khó đoán, EBS gp3 rẻ và tốt hơn gp2.</li>
+<li>Network: NAT Gateway tốn phí theo giờ + GB — dùng Gateway Endpoint miễn phí cho S3/DynamoDB để cắt traffic qua NAT; CloudFront giảm chi phí egress.</li>
+<li>Luôn bật Cost Allocation Tags theo team/dự án và dọn tài nguyên mồ côi: volume không gắn, snapshot cũ, Elastic IP thừa.</li>
+</ul></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-18.html">← Bài 18 — Disaster Recovery</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-20.html">Bài 20 — Kiến Trúc Tổng Hợp SAA →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-19"; window.QUIZ_DATA = [{"n": 1, "text": "A company needs the MOST detailed cost and usage data available for its AWS accounts so that its finance team can run custom analysis with Amazon Athena. Which AWS offering should the company use?", "options": {"A": "AWS Cost Explorer", "B": "AWS Budgets", "C": "AWS Cost and Usage Report", "D": "AWS Trusted Advisor"}, "answer": "C", "explanation": "Cost and Usage Report (CUR) là nguồn dữ liệu chi phí **chi tiết nhất**, xuất ra S3 để phân tích bằng Athena/QuickSight — khớp từ khóa \"most detailed\". Cost Explorer phục vụ phân tích trực quan nhanh, Budgets phục vụ ngân sách/cảnh báo, Trusted Advisor đưa khuyến nghị — không cái nào là dữ liệu thô chi tiết nhất."}, {"n": 2, "text": "A company's EC2 instances in private subnets download large amounts of data from Amazon S3 every day. The monthly bill shows rapidly growing NAT Gateway data processing charges. Which solution will MOST cost-effectively reduce these charges while keeping the instances in private subnets?", "options": {"A": "Move the EC2 instances to public subnets and assign Elastic IP addresses.", "B": "Create a VPC gateway endpoint for Amazon S3 and route S3 traffic through it.", "C": "Replace the NAT Gateway with a larger NAT Gateway instance type.", "D": "Deploy an Amazon CloudFront distribution in front of the S3 bucket."}, "answer": "B", "explanation": "Gateway Endpoint cho S3 **miễn phí** và đưa traffic S3 ra khỏi NAT Gateway, giữ nguyên private subnet — vừa rẻ nhất vừa đúng bảo mật. A phá vỡ yêu cầu private và tăng rủi ro bảo mật. C sai bản chất vì NAT Gateway không có \"instance type lớn hơn\" để đổi, và vẫn tính phí theo GB. D không giải quyết luồng EC2 → S3 nội bộ trong bài toán này."}, {"n": 3, "text": "A company runs a steady-state production workload on the same EC2 instance family in the same AWS Region, and this is not expected to change for the next 3 years. The company wants the deepest possible discount compared to On-Demand pricing. Which purchasing option is the MOST appropriate?", "options": {"A": "Spot Instances", "B": "Compute Savings Plans", "C": "EC2 Instance Savings Plans", "D": "On-Demand Instances with nightly shutdowns"}, "answer": "C", "explanation": "Workload ổn định, **cố định family + Region trong 3 năm** là điều kiện lý tưởng của EC2 Instance Savings Plans — đổi lại cam kết cứng là mức giảm sâu hơn Compute SP. Compute SP (B) linh hoạt hơn nhưng giảm ít hơn, chỉ thắng khi workload cần đổi family/Region/dịch vụ. Spot (A) không phù hợp production ổn định không chịu gián đoạn. D không phải cam kết giảm giá và việc tắt máy đêm không áp dụng cho workload chạy liên tục."}, {"n": 4, "text": "A data processing team runs nightly batch jobs on EC2 instances. The jobs can be interrupted at any time and safely resumed from checkpoints without data loss. Which purchasing option will MOST cost-effectively run these jobs?", "options": {"A": "On-Demand Instances", "B": "Dedicated Hosts", "C": "Spot Instances", "D": "EC2 Instance Savings Plans"}, "answer": "C", "explanation": "Batch job có checkpoint, **chịu được gián đoạn và chạy lại an toàn** là chân dung hoàn hảo của Spot Instances — giá rẻ nhất trong các lựa chọn. Đây là pattern đề thi lặp lại nhiều lần: thấy \"fault-tolerant / interruptible / checkpoint\" → Spot."}, {"n": 5, "text": "A finance manager wants to receive an alert when the forecasted AWS spend for a project reaches 80% of its monthly budget, and wants costs tracked separately by project and team. Which combination of actions meets these requirements? (Select the best answer.)", "options": {"A": "Use AWS Cost Explorer forecasts and check the console daily.", "B": "Use AWS Budgets for threshold alerts and activate Cost Allocation Tags to track costs by project and team.", "C": "Use AWS Trusted Advisor to send budget alerts and rely on account names for cost tracking.", "D": "Use the Cost and Usage Report with a Lambda function to delete resources at 80% usage."}, "answer": "B", "explanation": "\"Alert khi đạt ngưỡng ngân sách\" là chức năng của **AWS Budgets** (cảnh báo theo chi phí thực tế và dự báo), còn \"theo dõi chi phí theo project/team\" là **Cost Allocation Tags** sau khi activate trong Billing. Cost Explorer (A) không tự gửi alert theo ngưỡng ngân sách. Trusted Advisor (C) không phải công cụ đặt ngân sách. D dùng CUR sai mục đích và hành động xóa tài nguyên tự động là nguy hiểm, không phải yêu cầu của đề."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

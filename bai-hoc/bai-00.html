@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 00 — Cloud Computing là gì? Giới thiệu AWS — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 00 — Cloud Computing là gì? Giới thiệu AWS</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Hiểu Cloud Computing là gì bằng ngôn ngữ đời thường</li>
+<li>Nắm được lợi ích cốt lõi: pay-as-you-go, elasticity, agility, global reach</li>
+<li>Phân biệt được IaaS / PaaS / SaaS</li>
+<li>Hiểu các mô hình triển khai: Public Cloud, Private Cloud, Hybrid Cloud</li>
+<li>Biết cấu trúc hạ tầng toàn cầu của AWS: Region, Availability Zone, Edge Location</li>
+<li>Nắm Shared Responsibility Model — phần nào AWS lo, phần nào mình lo</li>
+<li>Biết Well-Architected Framework gồm 6 trụ cột</li>
+<li>Nắm thông tin cơ bản về kỳ thi SAA-C03</li>
+</ul>
+<h2>Lý thuyết chính</h2>
+<h3>1. Cloud Computing là gì?</h3>
+<p><strong>Cloud Computing</strong> là việc thuê tài nguyên IT (máy chủ, lưu trữ, database, network) qua Internet, dùng bao nhiêu trả bấy nhiêu, thay vì tự mua máy chủ đặt ở công ty.</p>
+<p>Trước đây, muốn có website, bạn phải mua server, thuê chỗ đặt, thuê người bảo trì, mua điện, điều hòa. Với Cloud, bạn chỉ cần vài cú click là có server chạy trong vài phút.</p>
+<p>AWS (Amazon Web Services) là nhà cung cấp Cloud lớn nhất thế giới. SAA-C03 là chứng chỉ <strong>AWS Certified Solutions Architect – Associate</strong>, chứng chỉ dành cho người thiết kế hệ thống trên AWS.</p>
+<p>Thông tin kỳ thi SAA-C03 cần nhớ ngay từ đầu:
+- 65 câu hỏi trắc nghiệm (50 câu tính điểm + 15 câu không tính điểm, bạn không biết câu nào không tính điểm)
+- Thời gian: 130 phút
+- Điểm đạt: 720/1000
+- Lệ phí: $150
+- Hiệu lực: 3 năm
+- <strong>KHÔNG có đề tiếng Việt</strong> — đề thi chỉ có tiếng Anh và một số ngôn ngữ khác, không có tiếng Việt. Vì vậy học phải nhớ keyword tiếng Anh.
+- Trọng số 4 domain: <strong>Secure Applications and Architectures 30%</strong>, <strong>Resilient Architectures 26%</strong>, <strong>High-Performing Architectures 24%</strong>, <strong>Cost-Optimized Architectures 20%</strong></p>
+<h3>2. Lợi ích cốt lõi của Cloud</h3>
+<ul>
+<li><strong>Pay-as-you-go:</strong> Dùng bao nhiêu trả bấy nhiêu, như tiền điện nước. Không dùng thì tắt đi là không tốn tiền compute.</li>
+<li><strong>Elasticity:</strong> Tăng/giảm tài nguyên tự động theo nhu cầu. Trưa đông khách thì tăng server, đêm ít khách thì giảm server.</li>
+<li><strong>Scalability:</strong> Hệ thống lớn lên được khi business lớn lên, không phải đập đi xây lại.</li>
+<li><strong>Agility:</strong> Thử nghiệm nhanh, sai thì xóa. Ra tính năng mới trong vài giờ thay vì vài tháng.</li>
+<li><strong>Global in minutes:</strong> Triển khai hệ thống ra nhiều nước trong vài phút.</li>
+<li><strong>Trade capital expense for variable expense:</strong> Biến chi phí đầu tư ban đầu lớn (CapEx) thành chi phí vận hành theo用量 (OpEx).</li>
+<li><strong>Stop guessing capacity:</strong> Không cần đoán trước cần bao nhiêu server.</li>
+<li><strong>Economies of scale:</strong> AWS mua phần cứng số lượng khổng lồ nên giá rẻ hơn bạn tự mua.</li>
+</ul>
+<p>Phân biệt nhỏ nhưng hay thi: <strong>Elasticity</strong> là khả năng tự co giãn theo load ở thời điểm hiện tại. <strong>Scalability</strong> là khả năng hệ thống chịu được khi lớn lên về lâu dài.</p>
+<h3>3. Các mô hình dịch vụ: IaaS / PaaS / SaaS</h3>
+<p>Hãy tưởng tượng từ thấp đến cao, càng lên cao bạn càng ít phải quản lý:</p>
+<ul>
+<li><strong>IaaS — Infrastructure as a Service:</strong> AWS cho thuê hạ tầng thô: máy ảo, network, storage. Bạn tự cài OS, tự cài phần mềm. Ví dụ: <strong>Amazon EC2</strong>. Bạn quản lý nhiều nhất, linh hoạt nhất.</li>
+<li><strong>PaaS — Platform as a Service:</strong> AWS lo sẵn platform, bạn chỉ đưa code lên chạy. Ví dụ: <strong>AWS Elastic Beanstalk</strong>. Bạn không cần lo OS, patching.</li>
+<li><strong>SaaS — Software as a Service:</strong> Dùng phần mềm có sẵn qua Internet, không cài gì. Ví dụ: Gmail, Dropbox, Salesforce. Bạn chỉ là người dùng cuối.</li>
+</ul>
+<p>Keyword đề thi: EC2 = IaaS, Elastic Beanstalk = PaaS, Gmail = SaaS.</p>
+<h3>4. Mô hình triển khai</h3>
+<ul>
+<li><strong>Public Cloud:</strong> Dùng hạ tầng của AWS, chia sẻ với khách hàng khác nhưng dữ liệu tách biệt. Ví dụ: chạy toàn bộ trên AWS.</li>
+<li><strong>Private Cloud / On-premises:</strong> Hạ tầng riêng trong data center của công ty. Kiểm soát cao nhưng tốn kém.</li>
+<li><strong>Hybrid Cloud:</strong> Kết hợp cả hai — một phần on-premises, một phần trên AWS, kết nối với nhau. Rất phổ biến trong doanh nghiệp lớn và là đáp án hay gặp trong đề thi khi công ty muốn migrate dần.</li>
+</ul>
+<h3>5. Hạ tầng toàn cầu của AWS</h3>
+<p>Đây là phần chắc chắn có trong đề thi:</p>
+<ul>
+<li><strong>Region:</strong> Một khu vực địa lý độc lập, ví dụ <code>us-east-1</code> (Virginia), <code>ap-southeast-1</code> (Singapore). Mỗi Region hoàn toàn độc lập với Region khác. Chọn Region dựa trên: latency (gần người dùng), compliance (luật dữ liệu), cost (giá mỗi Region khác nhau), và service availability (không phải dịch vụ nào cũng có ở mọi Region).</li>
+<li><strong>Availability Zone (AZ):</strong> Mỗi Region gồm nhiều AZ. Mỗi AZ là một hoặc nhiều data center vật lý riêng biệt, cách nhau đủ xa để không cùng ngập lụt/mất điện, nhưng đủ gần để độ trễ thấp. AZ được ký hiệu như <code>us-east-1a</code>, <code>us-east-1b</code>. Thiết kế chuẩn là chạy hệ thống trên <strong>ít nhất 2 AZ</strong> để đạt High Availability.</li>
+<li><strong>Edge Location:</strong> Điểm đặt máy chủ biên, gần người dùng, dùng cho <strong>Amazon CloudFront</strong> (CDN) và <strong>Route 53</strong>. Số lượng Edge Location nhiều hơn số Region rất nhiều. Nhiệm vụ của nó là cache nội dung và giảm latency, không phải nơi chạy EC2 chính.</li>
+<li><strong>Local Zones, Wavelength, Outposts:</strong> Mở rộng của AWS ra gần người dùng hơn hoặc vào data center của khách hàng — chỉ cần biết khái niệm ở mức Associate.</li>
+</ul>
+<p>Nguyên tắc vàng: <strong>Region là độc lập, AZ là độc lập trong Region</strong>. Sập 1 AZ không được làm sập hệ thống của bạn nếu bạn thiết kế đúng.</p>
+<h3>6. Shared Responsibility Model</h3>
+<p>Đây là mô hình <strong>trách nhiệm chia sẻ</strong> giữa AWS và khách hàng — câu hỏi kinh điển trong mọi đề thi AWS.</p>
+<ul>
+<li><strong>AWS chịu trách nhiệm về Security OF the Cloud:</strong> Phần cứng, data center, network toàn cầu, Region/AZ, phần mềm ảo hóa. AWS lo bảo mật <em>của</em> đám mây.</li>
+<li><strong>Khách hàng chịu trách nhiệm về Security IN the Cloud:</strong> Dữ liệu của bạn, cấu hình IAM, cấu hình Security Group, mã hóa dữ liệu, patch OS trên EC2, cài antivirus trên EC2. Bạn lo bảo mật <em>trong</em> đám mây.</li>
+</ul>
+<p>Với dịch vụ càng managed (ví dụ Lambda, S3), AWS lo càng nhiều. Với IaaS như EC2, bạn lo càng nhiều — kể cả việc vá lỗi hệ điều hành.</p>
+<p>Nhớ câu thần chú: <strong>AWS lo OF, Customer lo IN.</strong></p>
+<h3>7. Well-Architected Framework — 6 trụ cột</h3>
+<p>Khung thiết kế hệ thống tốt trên AWS gồm 6 trụ cột (pillars). Đề thi hay hỏi tên trụ cột:</p>
+<ol>
+<li><strong>Operational Excellence</strong> — Vận hành xuất sắc: chạy, giám sát, cải tiến liên tục, Infrastructure as Code.</li>
+<li><strong>Security</strong> — Bảo mật: IAM, mã hóa, least privilege, traceability.</li>
+<li><strong>Reliability</strong> — Độ tin cậy: tự phục hồi khi lỗi, scale ngang, backup.</li>
+<li><strong>Performance Efficiency</strong> — Hiệu quả hiệu năng: chọn đúng loại tài nguyên, dùng serverless khi phù hợp.</li>
+<li><strong>Cost Optimization</strong> — Tối ưu chi phí: pay-as-you-go, đo lường, tắt tài nguyên thừa.</li>
+<li><strong>Sustainability</strong> — Bền vững: giảm tác động môi trường, dùng tài nguyên hiệu quả.</li>
+</ol>
+<p>Khi đề thi mô tả một tình huống, hãy nghĩ: câu này đang hỏi về trụ cột nào?</p>
+<h2>Ví dụ đời thường</h2>
+<p><strong>Cloud giống như đi thuê nhà / dùng điện nước, không phải mua đất xây nhà.</strong></p>
+<ul>
+<li>Tự mua server giống như tự mua đất, xây nhà, tự kéo điện nước. Đắt lúc đầu, nhà chật thì phải xây lại, dọn đi cũng khó bán.</li>
+<li>Dùng Cloud giống như thuê căn hộ dịch vụ: cần phòng to thì thuê phòng to, tháng sau ít người thì chuyển phòng nhỏ. Điện nước dùng bao nhiêu trả bấy nhiêu. Hỏng bóng đèn thì chủ nhà sửa — đó là phần AWS lo trong Shared Responsibility Model.</li>
+<li><strong>Elasticity</strong> giống như quán phở: buổi sáng đông khách thì kê thêm bàn ghế ra vỉa hè, buổi chiều vắng thì cất bàn đi. Không ai mua đứt cả mặt bằng vỉa hè chỉ vì 2 giờ đông khách buổi sáng.</li>
+<li><strong>Region</strong> giống như chuỗi cửa hàng ở Hà Nội, Đà Nẵng, Sài Gòn — mỗi thành phố là một Region độc lập. <strong>AZ</strong> là các cửa hàng khác nhau trong cùng một thành phố, đặt ở các quận khác nhau để nếu một quận mất điện thì cửa hàng quận khác vẫn bán được.</li>
+<li><strong>IaaS/PaaS/SaaS:</strong> IaaS là thuê đất trống tự xây quán. PaaS là thuê mặt bằng đã có sẵn bếp, bàn ghế, chỉ mang công thức phở tới nấu. SaaS là đi ăn phở có sẵn, ăn xong trả tiền, không lo gì cả.</li>
+</ul>
+<h2>Phân biệt dễ nhầm</h2>
+<table>
+<thead>
+<tr>
+<th>Cặp dễ nhầm</th>
+<th>Cách phân biệt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Region vs Availability Zone</td>
+<td>Region là khu vực địa lý lớn (Singapore). AZ là data center độc lập <em>bên trong</em> Region đó</td>
+</tr>
+<tr>
+<td>Availability Zone vs Edge Location</td>
+<td>AZ để chạy workload chính (EC2, RDS). Edge Location để cache nội dung qua CloudFront, số lượng nhiều hơn hẳn</td>
+</tr>
+<tr>
+<td>Elasticity vs Scalability</td>
+<td>Elasticity = co giãn tự động theo load hiện tại. Scalability = khả năng lớn lên lâu dài</td>
+</tr>
+<tr>
+<td>IaaS vs PaaS</td>
+<td>IaaS bạn quản lý OS (EC2). PaaS AWS quản lý OS/platform, bạn chỉ đưa code (Elastic Beanstalk)</td>
+</tr>
+<tr>
+<td>Security OF vs IN the Cloud</td>
+<td>OF = AWS lo hạ tầng. IN = Bạn lo dữ liệu, IAM, cấu hình</td>
+</tr>
+<tr>
+<td>Public Cloud vs Hybrid</td>
+<td>Hybrid nhất định phải có cả on-premises + cloud kết nối với nhau</td>
+</tr>
+</tbody>
+</table>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li>Đề nói "một AZ bị mất điện, hệ thống sập" rồi hỏi cách tránh: đáp án luôn hướng tới <strong>deploy across multiple AZs</strong>, không phải mua server to hơn.</li>
+<li>Đề hỏi về Edge Location: đáp án liên quan tới <strong>CloudFront / CDN / giảm latency cho nội dung tĩnh</strong>, đừng chọn EC2.</li>
+<li>Đề hỏi trách nhiệm patch OS trên EC2: đó là <strong>trách nhiệm của khách hàng</strong>, không phải AWS. Nếu là RDS hay Lambda thì AWS lo nhiều hơn.</li>
+<li>Đề đưa tình huống "công ty muốn giữ một phần dữ liệu nhạy cảm tại data center riêng, phần còn lại lên Cloud" — đó là <strong>Hybrid Cloud</strong>.</li>
+<li>Nhiều tài liệu cũ vẫn nói những con số hạ tầng toàn cầu cụ thể đã lỗi thời. Đề thi SAA-C03 không kiểm tra bạn nhớ chính xác số Region hiện tại, mà kiểm tra bạn hiểu khái niệm Region/AZ dùng để làm gì: High Availability, Disaster Recovery, latency, compliance.</li>
+<li>Nhớ trọng số: Secure 30% là cao nhất. Ngay từ bài 00, hãy hiểu là bảo mật sẽ xuyên suốt cả kỳ thi.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<p>Cloud là thuê tài nguyên IT qua Internet, dùng bao nhiêu trả bấy nhiêu, với lợi ích lớn nhất là elasticity và agility.
+IaaS (EC2) bạn quản nhiều nhất, PaaS (Elastic Beanstalk) ở giữa, SaaS bạn chỉ dùng phần mềm có sẵn.
+AWS chia thế giới thành Region, mỗi Region có nhiều Availability Zone độc lập — thiết kế tối thiểu 2 AZ để có High Availability.
+Shared Responsibility Model: AWS lo Security OF the Cloud, bạn lo Security IN the Cloud — dữ liệu và cấu hình là của bạn.
+Well-Architected Framework có 6 trụ cột: Operational Excellence, Security, Reliability, Performance Efficiency, Cost Optimization, Sustainability.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><span class="spacer"></span><a class="btn btn-ghost" href="bai-01.html">Bài 01 — IAM và Bảo mật tài khoản →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-00"; window.QUIZ_DATA = [{"n": 1, "text": "A company wants to deploy an application across multiple isolated data centers within a single geographic area to achieve high availability. Which AWS component should they use?", "options": {"A": "Multiple Regions", "B": "Multiple Availability Zones within a single Region", "C": "Multiple Edge Locations", "D": "Multiple AWS accounts"}, "answer": "B", "explanation": "Nhiều Availability Zone trong cùng một Region là thiết kế chuẩn cho High Availability. Mỗi AZ độc lập về điện, mạng, vị trí vật lý nên một AZ sập thì AZ khác vẫn chạy. Dùng nhiều Region là cho Disaster Recovery xuyên khu vực, phức tạp hơn mức cần thiết trong câu này. Edge Location là cho CloudFront, không chạy workload chính."}, {"n": 2, "text": "According to the Shared Responsibility Model, which of the following is the CUSTOMER's responsibility when using Amazon EC2?", "options": {"A": "Physical security of the data center", "B": "Patching the guest operating system", "C": "Maintaining the underlying hardware", "D": "Managing the virtualization software"}, "answer": "B", "explanation": "Trên EC2 (IaaS), khách hàng chịu trách nhiệm patch Guest OS, cấu hình firewall, quản lý dữ liệu. AWS lo phần A, C, D — đó là Security OF the Cloud: bảo mật vật lý, phần cứng, ảo hóa."}, {"n": 3, "text": "Which service model describes AWS Elastic Beanstalk, where the customer provides the code and AWS manages the underlying platform?", "options": {"A": "Infrastructure as a Service (IaaS)", "B": "Platform as a Service (PaaS)", "C": "Software as a Service (SaaS)", "D": "Function as a Service (FaaS)"}, "answer": "B", "explanation": "Elastic Beanstalk là ví dụ kinh điển của PaaS trong đề thi AWS: bạn đưa code, AWS lo provision server, OS, load balancer. EC2 mới là IaaS. Gmail là SaaS."}, {"n": 4, "text": "A company keeps sensitive data in its own on-premises data center while running its web application on AWS, with connectivity between the two environments. Which deployment model is this?", "options": {"A": "Public Cloud", "B": "Private Cloud", "C": "Hybrid Cloud", "D": "Community Cloud"}, "answer": "C", "explanation": "Hybrid Cloud = kết hợp on-premises (private) + public cloud và có kết nối giữa hai bên. Đây là mô hình migrate phổ biến của doanh nghiệp lớn."}, {"n": 5, "text": "Which of the following is a benefit of Cloud Computing that means a system can automatically increase and decrease resources based on current demand?", "options": {"A": "Elasticity", "B": "Durability", "C": "Encryption", "D": "Federation"}, "answer": "A", "explanation": "Elasticity là định nghĩa sách giáo khoa: tự động tăng/giảm tài nguyên theo nhu cầu thực tế. Đây là keyword phải thuộc lòng, đề thi sẽ dùng đúng từ này trong cả câu hỏi lẫn đáp án."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

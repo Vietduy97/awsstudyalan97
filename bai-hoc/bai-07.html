@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 07 — RDS: Cơ sở dữ liệu quan hệ được quản lý — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 07 — RDS: Cơ sở dữ liệu quan hệ được quản lý</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Hiểu <code>RDS (Relational Database Service)</code> là gì: database quan hệ (<code>SQL</code>) do AWS quản lý thay bạn.</li>
+<li>Phân biệt rạch ròi hai tính năng bị nhầm nhiều nhất đề SAA-C03: <code>Multi-AZ</code> và <code>Read Replica</code>.</li>
+<li>Nắm chính sách backup: <code>Automated backups</code> 1–35 ngày vs <code>Manual snapshots</code> giữ vô hạn.</li>
+<li>Nhớ bẫy <code>encryption</code> của RDS: phải bật lúc tạo DB, muốn mã hóa DB cũ phải đi đường vòng qua snapshot.</li>
+<li>Biết <code>RDS Proxy</code> dùng để làm gì ở mức khái niệm.</li>
+</ul>
+<h2>Lý thuyết chính (tiếng Việt dễ hiểu, giữ nguyên thuật ngữ English)</h2>
+<h3>1. RDS là gì?</h3>
+<p>RDS là dịch vụ database quan hệ được quản lý (<code>managed service</code>). Thay vì tự cài database lên EC2 rồi tự lo patch, backup, failover, bạn khai báo engine, dung lượng, và AWS lo phần vận hành nặng nhọc.</p>
+<p>Các engine trong bài này:
+- <strong>MySQL</strong>
+- <strong>PostgreSQL</strong>
+- <strong>MariaDB</strong>
+- <strong>Oracle</strong>
+- <strong>Microsoft SQL Server</strong></p>
+<p><strong>Aurora</strong> cũng thuộc họ RDS nhưng đặc biệt hơn hẳn, nên được tách riêng sang Bài 08. Trong đề thi, thấy chữ Aurora là phải nghĩ đến các con số riêng của Aurora, không dùng giới hạn của RDS thường.</p>
+<p>Bạn vẫn phải tự lo: chọn instance size, thiết kế schema, tối ưu câu query, và quyết định các tính năng HA/read scaling dưới đây.</p>
+<h3>2. Multi-AZ — cho High Availability, KHÔNG cho tăng tốc đọc</h3>
+<p>Đây là trọng tâm của domain Resilient (26%).</p>
+<p>Khi bật <code>Multi-AZ deployment</code>, AWS tạo một bản <strong>standby</strong> (bản dự phòng) ở một <code>Availability Zone</code> khác trong cùng Region, và dữ liệu được đồng bộ <strong>đồng bộ — <code>synchronous replication</code></strong> từ primary sang standby: ghi xong ở cả hai nơi mới coi là xong.</p>
+<p>Khi primary hỏng (AZ sập, instance chết), RDS tự <code>failover</code>: đổi DNS sang standby, ứng dụng chỉ gián đoạn ngắn rồi chạy tiếp, thường không phải sửa connection string.</p>
+<p>Điều phải khắc cốt ghi tâm:
+- Standby <strong>không nhận query đọc</strong>. Nó chỉ ngồi chờ để tiếp quản.
+- Vì vậy Multi-AZ = <strong>High Availability / disaster recovery trong Region</strong>, <strong>KHÔNG tăng hiệu năng đọc, KHÔNG giảm tải cho primary</strong>.</p>
+<h3>3. Read Replica — cho tăng tốc đọc, KHÔNG phải để failover chính</h3>
+<p><code>Read Replica</code> là một bản sao chỉ-đọc (<code>read-only</code>) của database chính, dữ liệu được sao chép <strong>bất đồng bộ — <code>asynchronous replication</code></strong> (có độ trễ nhỏ, <code>replication lag</code>).</p>
+<ul>
+<li>Mục đích: chia tải đọc. App có 90% query là SELECT (xem sản phẩm, đọc báo cáo) thì đẩy phần đọc sang replica, primary nhẹ hẳn.</li>
+<li>Replica có thể đặt ở <strong>AZ khác, thậm chí Region khác</strong> (<code>cross-Region read replica</code>).</li>
+<li><strong>Tối đa 15 Read Replicas</strong> cho RDS (MySQL, PostgreSQL...).</li>
+<li>Replica có thể được promote (thăng cấp) thành DB độc lập khi cần, nhưng đó không phải cơ chế failover tự động mượt như Multi-AZ.</li>
+</ul>
+<p>Một kiến trúc chuẩn trong đề: <strong>Multi-AZ để chống sập + Read Replica để scale đọc</strong> — hai tính năng bổ sung cho nhau, không thay thế nhau.</p>
+<h3>4. Backup — Automated Backups vs Manual Snapshots</h3>
+<ul>
+<li><strong>Automated backups:</strong> RDS tự backup hàng ngày + giữ <code>transaction logs</code>, cho phép khôi phục về một thời điểm bất kỳ (<code>point-in-time restore</code>) trong thời gian giữ. <strong>Thời gian giữ (<code>retention period</code>): 1–35 ngày.</strong> Hết 35 ngày là bản backup tự bị xóa.</li>
+<li><strong>Manual snapshots:</strong> bạn tự bấm tạo (hoặc tạo qua script). <strong>Giữ không giới hạn thời gian, cho đến khi bạn tự xóa.</strong> Dùng cho mốc quan trọng cần giữ lâu: trước khi nâng cấp lớn, snapshot cuối năm để lưu trữ compliance.</li>
+</ul>
+<p>Cần giữ backup quá 35 ngày → đề sẽ muốn bạn chọn manual snapshot (hoặc copy automated backup đi nơi khác), không có cách kéo automated retention lên vô hạn.</p>
+<h3>5. Encryption — bẫy kinh điển, phải bật lúc TẠO DB</h3>
+<p>RDS encryption (<code>encryption at rest</code> bằng KMS) <strong>chỉ bật được tại thời điểm tạo database</strong>. Một DB đã tạo mà chưa mã hóa thì <strong>không có nút bấm để bật encryption lên sau</strong>.</p>
+<p>Muốn mã hóa một DB cũ đang chạy, quy trình bắt buộc trong đề thi là:
+1. Tạo <code>snapshot</code> của DB chưa mã hóa.
+2. <strong>Copy snapshot đó và bật encryption</strong> trong lúc copy (<code>encrypted copy</code>).
+3. <strong>Restore</strong> một DB mới từ snapshot đã mã hóa.
+4. Chuyển ứng dụng sang DB mới.</p>
+<p>Thấy đề hỏi "existing unencrypted RDS database must be encrypted" → đáp án luôn là chuỗi 3 bước snapshot → copy encrypted → restore này.</p>
+<p>Lưu ý thêm: bật Multi-AZ hay tạo Read Replica đều không tự biến DB chưa mã hóa thành đã mã hóa.</p>
+<h3>6. RDS Proxy — gom connection cho Lambda (mức khái niệm)</h3>
+<p>Database quan hệ có giới hạn số <code>connection</code> đồng thời. <code>AWS Lambda</code> thì mỗi lần chạy lại mở connection mới, hàng nghìn function chạy cùng lúc sẽ làm DB quá tải connection ("too many connections").</p>
+<p><code>RDS Proxy</code> là một lớp trung gian đứng giữa app/Lambda và RDS: nó <strong>gom và tái sử dụng connection</strong> (<code>connection pooling</code>), giảm số connection thực sự mở vào DB, đồng thời giúp failover êm hơn. Trong đề, thấy tổ hợp "Lambda + RDS + quá nhiều connection" → nghĩ ngay RDS Proxy.</p>
+<h2>Ví dụ đời thường</h2>
+<p>Tưởng tượng bạn mở một nhà hàng bún chả đông khách ở Hà Nội.</p>
+<p><code>Multi-AZ</code> giống như bạn thuê sẵn một mặt bằng dự phòng ở quận khác, bếp bên đó được cập nhật thực đơn và nguyên liệu <strong>y hệt, ngay lập tức</strong> (synchronous). Quán chính bị mất điện thì bạn dắt khách sang quán dự phòng trong ít phút. Nhưng khi quán chính đang hoạt động bình thường, quán dự phòng <strong>không bán hàng</strong> — nó chỉ đứng chờ. Khách đông hơn không làm quán chính đỡ đông nhờ quán dự phòng. Đó là lý do Multi-AZ không tăng tốc đọc.</p>
+<p><code>Read Replica</code> giống như bạn mở thêm các quầy "chỉ bán mang về / chỉ xem menu" xung quanh thành phố. Nguyên liệu được xe chở sang định kỳ nên có thể chậm hơn quán chính vài phút (asynchronous). Khách chỉ đến xem menu, hỏi giá (đọc) thì ghé quầy phụ, bếp chính rảnh tay lo nấu (ghi). Bạn mở được tới 15 quầy phụ như vậy, kể cả ở tỉnh khác.</p>
+<p><code>Automated backup 1–35 ngày</code> như camera an ninh của quán tự ghi hình và chỉ giữ 35 ngày gần nhất. Còn <code>manual snapshot</code> như bạn tự chụp lại sổ sách kế toán cuối năm và cất vào két — giữ bao lâu tùy bạn, không ai tự xóa.</p>
+<h2>Phân biệt dễ nhầm</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Multi-AZ</th>
+<th>Read Replica</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mục đích chính</td>
+<td>High Availability, failover</td>
+<td>Tăng tốc / mở rộng đọc (read scaling)</td>
+</tr>
+<tr>
+<td>Đồng bộ</td>
+<td>Synchronous (đồng bộ)</td>
+<td>Asynchronous (bất đồng bộ, có lag)</td>
+</tr>
+<tr>
+<td>Đọc được không?</td>
+<td><strong>Không</strong> — standby không phục vụ query</td>
+<td><strong>Có</strong> — chỉ phục vụ đọc</td>
+</tr>
+<tr>
+<td>Phạm vi</td>
+<td>AZ khác, cùng Region</td>
+<td>Khác AZ, khác cả Region được</td>
+</tr>
+<tr>
+<td>Failover</td>
+<td>Tự động, đổi DNS</td>
+<td>Không tự động; promote thủ công khi cần</td>
+</tr>
+</tbody>
+</table>
+<p>Phân biệt thêm:
+- <strong>Automated backup vs Manual snapshot:</strong> 1–35 ngày, tự xóa vs giữ vô hạn đến khi tự xóa.
+- <strong>RDS thường vs Aurora:</strong> RDS thường tối đa 15 Read Replicas và backup theo snapshot; Aurora (Bài 08) storage tới 128 TB, cũng 15 replicas nhưng kiến trúc khác hẳn. Đừng lẫn giới hạn giữa hai bên khi đề nhắc đích danh engine.</p>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li>Đề hỏi "improve read performance / handle read-heavy workload" mà đáp án chọn Multi-AZ → <strong>sai</strong>. Phải là Read Replica.</li>
+<li>Đề hỏi "ensure database availability if an AZ fails / automatic failover" mà đáp án chọn Read Replica → <strong>thiếu</strong>. Phải là Multi-AZ.</li>
+<li>Con số phải thuộc: <strong>Read Replica tối đa 15</strong>, <strong>automated backup retention 1–35 ngày</strong>, manual snapshot <strong>không giới hạn</strong>.</li>
+<li>"Encrypt an existing unencrypted RDS instance" → không có đáp án "enable encryption in settings". Đáp án đúng là <strong>snapshot → encrypted copy → restore</strong>.</li>
+<li>Tổ hợp <code>Lambda + too many database connections</code> → <strong>RDS Proxy</strong>.</li>
+<li>Multi-AZ standby không đọc được — câu bẫy xuất hiện trong đề dưới dạng "use the standby instance to serve read queries to reduce cost". Sai hoàn toàn.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<p>RDS là SQL database được quản lý, gồm MySQL, PostgreSQL, MariaDB, Oracle, SQL Server (Aurora học riêng ở Bài 08).
+Multi-AZ là standby đồng bộ ở AZ khác để HA/failover, không hề tăng tốc đọc.
+Read Replica là bản sao bất đồng bộ để scale đọc, đặt được ở Region khác, tối đa 15 replicas.
+Automated backups giữ 1–35 ngày, manual snapshots giữ vô hạn đến khi tự xóa.
+Encryption phải bật lúc tạo DB; DB cũ muốn mã hóa phải snapshot → copy có encryption → restore, còn Lambda nhiều connection thì dùng RDS Proxy.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-06.html">← Bài 06 — EBS & EFS: Ổ đĩa cho EC2 và đĩa dùng chung</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-08.html">Bài 08 — DynamoDB & Aurora: NoSQL tốc độ cao và SQL “xịn” của AWS →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-07"; window.QUIZ_DATA = [{"n": 1, "text": "A company's RDS for MySQL database experiences heavy read traffic that slows down the primary instance. The company wants to scale read performance without changing the write workload. What is the best solution?", "options": {"A": "Enable Multi-AZ deployment", "B": "Create Read Replicas and direct read queries to them", "C": "Enable automated backups with 35-day retention", "D": "Increase the retention period of manual snapshots"}, "answer": "B", "explanation": "Tải đọc nặng (`read-heavy`) là bài toán của Read Replica: sao chép bất đồng bộ, phục vụ query đọc, tối đa 15 replicas. Multi-AZ chỉ để failover, standby của nó không đọc được nên không giảm tải chút nào."}, {"n": 2, "text": "An RDS database must remain available with automatic failover if an Availability Zone becomes unavailable. Which feature should be enabled?", "options": {"A": "Read Replica in another Region", "B": "RDS Proxy", "C": "Multi-AZ deployment with a synchronous standby", "D": "Manual snapshots taken daily"}, "answer": "C", "explanation": "Yêu cầu \"automatic failover khi 1 AZ sập\" là định nghĩa của Multi-AZ: standby đồng bộ (`synchronous`) ở AZ khác, RDS tự đổi DNS sang standby. Read Replica ở Region khác phục vụ đọc và không tự failover thay primary theo cách này."}, {"n": 3, "text": "An existing RDS database was created without encryption. A new compliance rule requires encryption at rest. How can this be achieved?", "options": {"A": "Enable encryption in the RDS console for the running instance", "B": "Turn on Multi-AZ and the standby will be encrypted", "C": "Create a snapshot, copy it with encryption enabled, then restore a new DB from the encrypted copy", "D": "Create a Read Replica with encryption enabled"}, "answer": "C", "explanation": "Đây là bẫy nổi tiếng nhất của RDS: encryption chỉ bật được lúc tạo DB. Với DB cũ chưa mã hóa, quy trình duy nhất đúng là snapshot → copy snapshot có bật encryption → restore DB mới từ bản copy đó."}, {"n": 4, "text": "Hundreds of AWS Lambda functions connect directly to an RDS database and frequently cause \"too many connections\" errors. Which service should be placed between Lambda and RDS?", "options": {"A": "Amazon EFS", "B": "RDS Proxy", "C": "S3 Transfer Acceleration", "D": "DynamoDB DAX"}, "answer": "B", "explanation": "RDS Proxy làm `connection pooling` — gom và tái sử dụng connection giữa Lambda và RDS, giải quyết đúng lỗi \"too many connections\". Các đáp án còn lại không liên quan đến connection của RDS."}, {"n": 5, "text": "A company needs to retain an RDS backup for 2 years for year-end auditing. Automated backups are already enabled. What should the company do?", "options": {"A": "Set the automated backup retention period to 730 days", "B": "Create a manual snapshot and keep it until it is no longer needed", "C": "Enable Multi-AZ deployment", "D": "Create a Read Replica in another Region"}, "answer": "B", "explanation": "Automated backups tối đa chỉ giữ 35 ngày, không đặt được 730 ngày. Muốn giữ backup 2 năm phải tạo manual snapshot — loại này giữ không giới hạn cho đến khi bạn tự xóa."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

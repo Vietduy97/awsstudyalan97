@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 02 — Billing và Free Tier an toàn — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 02 — Billing và Free Tier an toàn</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Hiểu cách AWS tính tiền và vì sao người mới dễ bị trừ tiền oan</li>
+<li>Biết dùng AWS Pricing Calculator, Billing Dashboard, Cost Explorer</li>
+<li>Biết thiết lập AWS Budgets và Billing Alarm ngay ngày đầu tiên</li>
+<li>Nắm chính xác Free Tier MỚI áp dụng cho tài khoản tạo từ 15/07/2025</li>
+<li>Nhận diện các bẫy tốn tiền phổ biến: NAT Gateway, Elastic IP, RDS/snapshot quên xóa, tài nguyên ở Region khác</li>
+<li>Nắm checklist an toàn ngày 1 và cách terminate tài nguyên đúng cách</li>
+<li>Hiểu Budget là chuông báo, không phải nắp chặn chi tiêu</li>
+</ul>
+<h2>Lý thuyết chính</h2>
+<h3>1. Cách AWS tính tiền</h3>
+<p>AWS tính tiền theo nguyên tắc <strong>pay-as-you-go</strong>: mỗi dịch vụ có một cách tính riêng — EC2 tính theo giờ/giây chạy, S3 tính theo dung lượng lưu trữ + số request, Lambda tính theo số request + thời gian chạy, dữ liệu truyền ra Internet (data transfer out) thường bị tính phí trong khi truyền vào thường miễn phí.</p>
+<p>Ba yếu tố luôn xuất hiện trong hóa đơn: <strong>Compute</strong> (thời gian máy chạy), <strong>Storage</strong> (dung lượng lưu), <strong>Data transfer out</strong> (dữ liệu đi ra Internet). Điểm mấu chốt người mới hay quên: <strong>nhiều tài nguyên vẫn tính tiền khi bạn tưởng nó đã "tắt"</strong> — ổ đĩa EBS vẫn tính tiền khi EC2 đã stop, snapshot vẫn tính tiền sau khi đã xóa instance, địa chỉ IP tĩnh không dùng vẫn tính tiền.</p>
+<p>Mỗi <strong>Region có giá khác nhau</strong>. Tài nguyên bạn tạo ở Region nào thì nằm ở Region đó — quên một instance ở Region xa là bẫy kinh điển.</p>
+<h3>2. Các công cụ quản lý chi phí</h3>
+<ul>
+<li><strong>AWS Pricing Calculator:</strong> Công cụ ước tính chi phí <em>trước khi</em> dùng. Chọn dịch vụ, cấu hình, Region → ra bảng ước tính để dự toán. Đề thi hay hỏi "muốn ước tính chi phí trước khi triển khai thì dùng gì?" — đáp án là Pricing Calculator.</li>
+<li><strong>Billing Dashboard (Billing and Cost Management Dashboard):</strong> Trang tổng quan hóa đơn của tài khoản: tháng này đã tốn bao nhiêu, dịch vụ nào tốn nhất, xem hóa đơn các tháng trước.</li>
+<li><strong>AWS Cost Explorer:</strong> Phân tích chi phí <em>đã phát sinh</em> theo thời gian, lọc theo dịch vụ, Region, tag, tài khoản. Dùng để trả lời câu hỏi "tháng trước tiền tăng vì dịch vụ nào?" Cost Explorer còn có khả năng forecast (dự báo) chi phí sắp tới.</li>
+<li><strong>AWS Budgets:</strong> Đặt ngân sách và nhận cảnh báo khi chi phí thực tế hoặc dự báo vượt ngưỡng (ví dụ báo ở 50%, 80%, 100% của $10/tháng). Budgets gửi cảnh báo qua email và Amazon SNS.</li>
+<li><strong>Billing Alarm (CloudWatch Billing Alarm):</strong> Alarm dựa trên metric hóa đơn trong CloudWatch. Lưu ý thực tế hay thi: Billing metric nằm ở Region <strong>us-east-1 (N. Virginia)</strong> — muốn tạo billing alarm phải chuyển sang Region đó.</li>
+<li><strong>AWS Cost and Usage Report (CUR):</strong> Báo cáo chi phí chi tiết nhất, xuất ra S3 để phân tích sâu.</li>
+<li><strong>Trusted Advisor — mục Cost Optimization:</strong> Gợi ý tài nguyên đang lãng phí, ví dụ EBS volume không gắn vào đâu, instance chạy utilization thấp.</li>
+</ul>
+<h3>3. Free Tier MỚI — phần bắt buộc phải học đúng</h3>
+<p><strong>Cảnh báo quan trọng:</strong> Rất nhiều tài liệu, video YouTube và blog cũ vẫn dạy gói Free Tier "12 tháng miễn phí 750 giờ EC2 mỗi tháng". <strong>Gói đó đã HẾT cho tài khoản mới.</strong> Nếu bạn làm theo tài liệu cũ, bạn sẽ hiểu sai hoàn toàn cách tài khoản mới được tính tiền.</p>
+<p>Đối với <strong>tài khoản tạo từ ngày 15/07/2025</strong>, AWS áp dụng chương trình Free Tier mới:</p>
+<ul>
+<li><strong>Nhận $100 credit ngay khi tạo tài khoản.</strong></li>
+<li><strong>Nhận thêm tối đa $100 credit nữa</strong> khi hoàn thành các hoạt động khám phá (explore activities) mà AWS gợi ý — ví dụ dùng thử các dịch vụ cơ bản. Tổng credit tối đa là <strong>$200 trong vòng 6 tháng</strong>.</li>
+<li>Tài khoản mới bắt đầu ở <strong>Free plan (gói miễn phí):</strong> Trong gói này, <strong>bạn KHÔNG bị trừ tiền</strong> ngay cả khi dùng dịch vụ — hệ thống trừ vào credit, và khi hết credit hoặc hết 6 tháng, tài khoản Free plan sẽ bị đóng/paused chứ không tự động chuyển sang tính tiền thẻ của bạn.</li>
+<li><strong>Chỉ khi bạn chủ động nâng cấp lên Paid plan</strong> thì AWS mới bắt đầu tính tiền vượt mức vào phương thức thanh toán. Vì vậy: đừng bấm nâng cấp Paid plan khi chưa hiểu rõ mình đang làm gì.</li>
+<li>Ngoài credit, vẫn có <strong>30+ dịch vụ Always Free</strong> — miễn phí dài hạn trong giới hạn nhất định (ví dụ một lượng request Lambda, dung lượng DynamoDB ở mức nhỏ) áp dụng kể cả cho tài khoản Paid, khác với credit có thời hạn 6 tháng.</li>
+</ul>
+<p>Phân biệt hai khái niệm hay bị nhầm: <strong>Credit $200 / 6 tháng</strong> là "tiền khuyến mãi có hạn dùng". <strong>Always Free</strong> là "hạn mức miễn phí luôn có sẵn" của hơn 30 dịch vụ. Hết 6 tháng Free plan mà không nâng cấp thì tài khoản đóng; nâng cấp lên Paid plan thì Always Free vẫn còn, nhưng dùng vượt hạn mức là bắt đầu tính tiền thật.</p>
+<h3>4. Các bẫy tốn tiền kinh điển</h3>
+<p>Đây là phần thực tế nhất của bài — và cũng là phần đề thi Cost-Optimized thích hỏi:</p>
+<ul>
+<li><strong>NAT Gateway:</strong> Tính phí <strong>theo giờ tồn tại + theo lượng dữ liệu đi qua</strong>. Tạo NAT Gateway cho bài lab rồi quên xóa là cách cháy tiền nhanh nhất của người mới. Học xong phải xóa NAT Gateway ngay.</li>
+<li><strong>Elastic IP không gắn vào instance nào:</strong> Địa chỉ IP tĩnh đang "thả rông" bị tính phí theo giờ. Không dùng thì phải <strong>release</strong> nó.</li>
+<li><strong>EC2 stop nhưng EBS vẫn tính tiền:</strong> Stop instance chỉ tắt phần compute. Ổ đĩa EBS vẫn tồn tại và vẫn tính tiền storage cho đến khi bạn xóa volume. Muốn hết tính tiền hẳn phải <strong>terminate instance + xóa EBS volume</strong>.</li>
+<li><strong>Quên RDS và snapshot:</strong> RDS instance quên tắt vẫn chạy 24/7. Snapshot của EBS/RDS chụp rồi quên cũng tích tiền theo dung lượng mỗi tháng.</li>
+<li><strong>Tài nguyên ở Region khác:</strong> Bạn chuyển Region để test rồi quên. Billing Dashboard nhìn tổng thì thấy tốn tiền mà vào Region mặc định lại không thấy máy nào. Cách xử lý: kiểm tra từng Region, hoặc dùng Cost Explorer lọc theo Region và Resource Explorer.</li>
+<li><strong>S3 quên đồ cũ:</strong> File lưu mãi vẫn tính tiền storage; nên đặt <strong>S3 Lifecycle Policy</strong> để chuyển tầng lưu trữ hoặc tự xóa.</li>
+<li><strong>Load Balancer, Elastic IP, EBS volume orphan:</strong> Các tài nguyên "mồ côi" không còn phục vụ ai nhưng vẫn nằm trên hóa đơn.</li>
+</ul>
+<h3>5. Budget là chuông báo, không phải nắp chặn</h3>
+<p>Phải thuộc lòng câu này cho cả đời làm AWS lẫn khi đi thi:</p>
+<p><strong>AWS Budgets và Billing Alarm là CHUÔNG BÁO, KHÔNG phải công tắc ngắt tiền.</strong> Vượt ngân sách thì AWS gửi email/SNS cảnh báo cho bạn — hệ thống <strong>không tự tắt</strong> EC2 hay xóa tài nguyên giùm bạn. Bạn nhận được cảnh báo mà không vào xử lý thì tiền vẫn tiếp tục chạy.</p>
+<p>Muốn tự động hành động khi vượt budget, phải tự kết hợp thêm: Budget Actions, hoặc SNS kích hoạt Lambda để stop instance. Mặc định thì không có gì tự ngắt cả. Đề thi hay gài câu "Budget sẽ tự động ngăn chi phí vượt quá $X" — câu đó là <strong>SAI</strong>.</p>
+<h3>6. Checklist an toàn ngày 1</h3>
+<p>Làm đủ danh sách này trong ngày đầu tiên tạo tài khoản:</p>
+<ol>
+<li>Bật <strong>MFA cho Root Account</strong>, tạo IAM User/Identity Center riêng cho việc hằng ngày, không dùng Root.</li>
+<li><strong>Không tạo Access Key cho Root.</strong> Không lộ Access Key ở bất kỳ đâu — không up lên GitHub, không gửi qua chat, không chụp màn hình chứa key.</li>
+<li>Tạo <strong>AWS Budget $0 / $1 và $10</strong> với cảnh báo email ở 50%, 80%, 100% — để có bất thường là biết ngay. Tạo thêm <strong>CloudWatch Billing Alarm</strong> (nhớ chuyển Region sang us-east-1).</li>
+<li>Bật <strong>Billing alerts</strong> trong Billing Preferences và bật IAM User access to Billing nếu cần.</li>
+<li>Xem qua <strong>Billing Dashboard</strong> và tập mở <strong>Cost Explorer</strong> để quen mặt.</li>
+<li>Ước tính chi phí lab bằng <strong>Pricing Calculator</strong> trước khi tạo tài nguyên đắt như NAT Gateway, RDS.</li>
+<li>Quy tắc cá nhân: tạo tài nguyên nào, ghi lại tài nguyên đó; học xong một buổi là <strong>terminate + kiểm tra lại đúng Region</strong> trước khi đóng máy.</li>
+<li>Kiểm tra các Region khác xem có tài nguyên nào quên không — đặc biệt sau khi làm lab theo video dùng Region lạ.</li>
+</ol>
+<h3>7. Terminate đúng cách</h3>
+<ul>
+<li><strong>Stop EC2:</strong> Tắt máy ảo, hết tiền compute, nhưng <strong>EBS vẫn tính tiền</strong>, Elastic IP gắn vào vẫn còn đó. Dữ liệu trên Instance Store (nếu có) mất khi stop.</li>
+<li><strong>Terminate EC2:</strong> Xóa hẳn máy ảo. EBS root volume mặc định bị xóa theo (nếu giữ thiết lập Delete on Termination), nhưng EBS volume phụ gắn thêm có thể còn sót lại — phải kiểm tra và xóa tay.</li>
+<li>Sau khi terminate, vào kiểm tra tiếp: <strong>EBS Volumes</strong> (còn volume nào <code>available</code> không?), <strong>Snapshots</strong>, <strong>Elastic IPs</strong> (release IP thừa), <strong>NAT Gateway</strong> (delete), <strong>RDS instances/snapshots</strong>. Xóa sạch "đồ mồ côi" mới thực sự hết tiền.</li>
+</ul>
+<h2>Ví dụ đời thường</h2>
+<p><strong>Hóa đơn AWS giống như hóa đơn điện nước + tiền thuê mặt bằng ở Việt Nam.</strong></p>
+<ul>
+<li><strong>EC2 đang chạy</strong> giống như bóng đèn đang bật — tắt đèn (stop) thì hết tiền điện phần đèn. Nhưng <strong>EBS</strong> giống như tiền thuê kho chứa đồ: bạn không đến kho nữa nhưng đồ còn để đó thì chủ kho vẫn thu tiền tháng. Muốn hết tiền kho thì phải dọn đồ đi (xóa volume) — đó là terminate đúng nghĩa.</li>
+<li><strong>NAT Gateway quên xóa</strong> giống như thuê một anh bảo vệ đứng cổng tính lương theo giờ, kể cả ban đêm không có ai qua cổng anh vẫn được trả lương. Học xong bài lab mà quên "cho bảo vệ nghỉ" thì cuối tháng nhìn bảng lương giật mình.</li>
+<li><strong>AWS Budgets</strong> giống như chuông báo cháy và tin nhắn cảnh báo của ngân hàng: nó kêu lên khi có khói, nhưng nó <strong>không tự dập lửa</strong>. Bạn nghe chuông mà không chạy vào tắt bếp thì nhà vẫn cháy — tiền vẫn trừ đều đều.</li>
+<li><strong>Free Tier mới với credit $200</strong> giống như thẻ quà tặng 200 nghìn có hạn dùng 6 tháng trong siêu thị: dùng trong hạn mức thì trừ vào thẻ quà, hết hạn thì thẻ hết giá trị. Chỉ khi bạn tự đăng ký gói trả phí (Paid plan) thì siêu thị mới bắt đầu quẹt thẻ ngân hàng của bạn.</li>
+<li><strong>Đồ quên ở Region khác</strong> giống như bạn có 3 căn nhà ở 3 tỉnh mà chỉ nhớ dọn 1 căn — 2 căn còn lại vẫn bị tính tiền điện nước tối thiểu mỗi tháng.</li>
+</ul>
+<h2>Phân biệt dễ nhầm</h2>
+<table>
+<thead>
+<tr>
+<th>Cặp dễ nhầm</th>
+<th>Cách phân biệt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pricing Calculator vs Cost Explorer</td>
+<td>Calculator = ước tính <em>trước</em> khi dùng. Cost Explorer = phân tích chi phí <em>đã</em> phát sinh</td>
+</tr>
+<tr>
+<td>AWS Budgets vs Billing Alarm</td>
+<td>Budgets đặt ngân sách + cảnh báo theo % ngân sách, có forecast. Billing Alarm là CloudWatch alarm trên metric hóa đơn, phải tạo ở us-east-1</td>
+</tr>
+<tr>
+<td>Stop vs Terminate EC2</td>
+<td>Stop = tắt máy, EBS vẫn còn và vẫn tính tiền. Terminate = xóa máy, cần kiểm tra xóa EBS/snapshot kèm theo</td>
+</tr>
+<tr>
+<td>Free plan vs Paid plan</td>
+<td>Free plan không bị trừ tiền thẻ, hết credit/hết 6 tháng thì đóng tài khoản. Paid plan dùng vượt là tính tiền thật</td>
+</tr>
+<tr>
+<td>Credit $200 vs Always Free</td>
+<td>Credit là tiền khuyến mãi 6 tháng. Always Free là hạn mức miễn phí dài hạn của 30+ dịch vụ</td>
+</tr>
+<tr>
+<td>Budget vs "nắp chặn chi tiêu"</td>
+<td>Budget chỉ cảnh báo, không tự ngắt tài nguyên. Muốn tự hành động phải cấu hình thêm Budget Action / Lambda</td>
+</tr>
+</tbody>
+</table>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li>Câu "AWS Budgets sẽ tự động dừng dịch vụ khi vượt ngân sách" là mệnh đề <strong>sai</strong>. Budgets chỉ alert. Đây là bẫy được lặp lại rất nhiều.</li>
+<li>Đề hỏi công cụ ước tính chi phí cho hệ thống sắp triển khai: chọn <strong>AWS Pricing Calculator</strong>, không phải Cost Explorer (Cost Explorer nhìn về quá khứ).</li>
+<li>Đề hỏi vì sao hóa đơn vẫn tăng sau khi đã stop EC2: đáp án là <strong>EBS volume vẫn bị tính phí</strong> (hoặc Elastic IP / snapshot còn tồn tại).</li>
+<li>Đề hỏi billing alarm không tạo được: nhớ là phải ở Region <strong>us-east-1</strong> mới thấy metric billing.</li>
+<li>Tài liệu bên ngoài nói "12 tháng 750h EC2 miễn phí" là tài liệu cũ — với tài khoản mới từ 15/07/2025, sự thật là <strong>$100 credit ngay + tối đa $100 nữa, tổng $200 trong 6 tháng, Free plan không trừ tiền thẻ trừ khi nâng cấp Paid plan</strong>. Đi thi SAA-C03 thì làm theo facts hiện hành, đừng bê nguyên kiến thức cũ.</li>
+<li>Đề Cost-Optimized hay cho tình huống NAT Gateway của môi trường dev chạy 24/7 gây tốn tiền — hướng xử lý là xóa khi không dùng, hoặc cân nhắc NAT Instance / VPC Endpoint tùy scenario trong các bài sau.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<p>AWS tính tiền theo pay-as-you-go cho compute, storage và data transfer out — và nhiều tài nguyên vẫn tính tiền khi bạn tưởng đã tắt, điển hình là EBS volume sau khi stop EC2.
+Pricing Calculator để ước tính trước, Cost Explorer để phân tích chi phí đã phát sinh, Billing Dashboard để xem hóa đơn, AWS Budgets để đặt cảnh báo ngân sách.
+Free Tier mới cho tài khoản từ 15/07/2025: $100 credit ngay + tối đa $100 nữa, tổng $200 trong 6 tháng, Free plan không trừ tiền thẻ trừ khi bạn tự nâng cấp Paid plan, kèm 30+ dịch vụ Always Free.
+Bẫy cháy tiền số một là NAT Gateway quên xóa, Elastic IP thả rông, RDS/snapshot quên, và tài nguyên bỏ quên ở Region khác.
+AWS Budgets là chuông báo chứ không phải nắp chặn chi tiêu, và checklist ngày 1 là bật MFA cho Root, đặt Budget + Billing Alarm ngay, và terminate kèm xóa sạch volume/snapshot/IP thừa sau mỗi buổi học.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-01.html">← Bài 01 — IAM và Bảo mật tài khoản</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-03.html">Bài 03 — EC2: Máy ảo trên AWS →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-02"; window.QUIZ_DATA = [{"n": 1, "text": "A solutions architect needs to estimate the cost of a new architecture BEFORE deploying it on AWS. Which tool should they use?", "options": {"A": "AWS Cost Explorer", "B": "AWS Pricing Calculator", "C": "AWS Budgets", "D": "AWS Cost and Usage Report"}, "answer": "B", "explanation": "Pricing Calculator là công cụ duy nhất trong danh sách dùng để ước tính chi phí *trước* khi triển khai. Cost Explorer và Cost and Usage Report đều phân tích chi phí đã xảy ra. Budgets là đặt ngân sách và cảnh báo."}, {"n": 2, "text": "A user stopped an Amazon EC2 instance for a month but still sees charges on the bill. What is the MOST likely cause?", "options": {"A": "Stopped EC2 instances still charge full compute costs", "B": "The attached Amazon EBS volume continues to incur storage charges", "C": "AWS charges a penalty fee for stopping instances", "D": "The instance was automatically restarted every day"}, "answer": "B", "explanation": "Stop EC2 chỉ dừng tiền compute. EBS volume gắn với instance vẫn tồn tại nên vẫn bị tính tiền storage. Muốn hết hẳn phải terminate và xóa volume. Đây là tình huống thực tế kinh điển và cũng là bẫy đề thi kinh điển."}, {"n": 3, "text": "Which statement about AWS Budgets is CORRECT?", "options": {"A": "AWS Budgets automatically stops all resources when the budget is exceeded", "B": "AWS Budgets prevents any spending beyond the set amount", "C": "AWS Budgets sends alerts when actual or forecasted costs exceed the threshold, but does not stop spending by itself", "D": "AWS Budgets deletes unused resources automatically"}, "answer": "C", "explanation": "Phải nhớ như in: Budgets là chuông báo, không phải nắp chặn. Nó gửi alert qua email/SNS khi chi phí thực tế hoặc dự báo vượt ngưỡng, nhưng không tự stop/delete bất cứ thứ gì nếu bạn không cấu hình thêm hành động."}, {"n": 4, "text": "A company created a NAT Gateway for a test and left it running unused for a month. What charges will apply?", "options": {"A": "No charges, because no traffic passed through it", "B": "Only a one-time creation fee", "C": "Hourly charges for the NAT Gateway's existence plus any data processing charges", "D": "Charges only if an EC2 instance is running"}, "answer": "C", "explanation": "NAT Gateway tính phí theo giờ tồn tại, kể cả khi không có traffic, cộng thêm phí xử lý dữ liệu nếu có dữ liệu đi qua. Quên xóa NAT Gateway là nguyên nhân cháy tiền số một của người học AWS."}, {"n": 5, "text": "Where must a CloudWatch Billing Alarm be created to monitor the estimated charges of an AWS account?", "options": {"A": "Any Region the user prefers", "B": "ap-southeast-1 (Singapore)", "C": "us-east-1 (N. Virginia)", "D": "The Region where most EC2 instances run"}, "answer": "C", "explanation": "Billing metrics của CloudWatch chỉ có ở us-east-1 (N. Virginia). Muốn tạo Billing Alarm, bạn phải chuyển Console sang Region us-east-1 — chi tiết nhỏ nhưng đề thi rất thích hỏi."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

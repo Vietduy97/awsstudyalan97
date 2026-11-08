@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 10 — Route 53 & CloudFront: DNS và CDN — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 10 — Route 53 &amp; CloudFront: DNS và CDN</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Hiểu Route 53 làm hai việc: đăng ký domain và DNS resolution.</li>
+<li>Phân biệt các record type, đặc biệt là Alias — đặc sản của Route 53.</li>
+<li>Chọn đúng Routing Policy theo từng tình huống đề bài đưa ra.</li>
+<li>Hiểu CloudFront phân phối nội dung ra sao, khóa S3 bằng OAC thế nào.</li>
+<li>Phân biệt Signed URL vs Signed Cookies, và CloudFront vs Global Accelerator.</li>
+</ul>
+<h2>Lý thuyết chính (tiếng Việt, giữ thuật ngữ English)</h2>
+<h3>1. Route 53 là gì?</h3>
+<p><strong>Amazon Route 53</strong> là dịch vụ <strong>DNS</strong> có tính sẵn sàng cao của AWS, đồng thời là nơi <strong>đăng ký domain</strong> (Domain Registrar). DNS là danh bạ của internet: dịch tên thân thiện như <code>shop.example.com</code> thành địa chỉ IP để máy tính kết nối.</p>
+<p>Ở mức khái niệm, Route 53 được biết tới với <strong>SLA 100%</strong> về độ sẵn sàng của DNS — đề thi rất thích chi tiết này. Route 53 là dịch vụ <strong>global</strong>, không thuộc về một Region cụ thể.</p>
+<h3>2. Record Types cần nhớ</h3>
+<ul>
+<li><strong>A:</strong> trỏ hostname -&gt; địa chỉ <strong>IPv4</strong>.</li>
+<li><strong>AAAA:</strong> trỏ hostname -&gt; địa chỉ <strong>IPv6</strong>.</li>
+<li><strong>CNAME:</strong> trỏ hostname -&gt; một <strong>hostname khác</strong>. Lưu ý: CNAME KHÔNG dùng được cho <strong>zone apex</strong> (domain gốc kiểu <code>example.com</code> không có <code>www</code>).</li>
+<li><strong>Alias:</strong> record đặc biệt của riêng Route 53. Trỏ hostname -&gt; tài nguyên AWS như <strong>Application Load Balancer, CloudFront distribution, S3 website</strong>. Khác CNAME ở chỗ: Alias dùng được cho cả <strong>zone apex</strong>, và truy vấn tới đích AWS thường không tốn thêm phí.</li>
+</ul>
+<p>Các loại khác (MX cho mail, TXT để xác thực) chỉ cần biết mặt, đề SAA ít xoáy sâu.</p>
+<h3>3. Health Checks</h3>
+<p>Route 53 có <strong>Health Check</strong>: định kỳ kiểm tra endpoint (IP/hostname) còn sống hay không. Health Check là nền tảng của Routing Policy kiểu Failover: endpoint chính chết thì DNS tự trả về địa chỉ của endpoint dự phòng. Health Check cũng có thể gắn với CloudWatch Alarm.</p>
+<h3>4. Routing Policies</h3>
+<p>Đây là phần đề thi hỏi nhiều nhất của Route 53. Mỗi policy trả lời một kiểu câu hỏi khác nhau:</p>
+<ul>
+<li><strong>Simple:</strong> một record, một hoặc nhiều giá trị, không có health check. Dùng khi chỉ có một đích duy nhất.</li>
+<li><strong>Weighted:</strong> chia traffic theo <strong>tỉ trọng</strong> bạn đặt, ví dụ 80% sang version mới, 20% sang version cũ. Nhận diện: đề nhắc tới phần trăm traffic, A/B testing, canary.</li>
+<li><strong>Latency-based:</strong> trả về endpoint có <strong>độ trễ thấp nhất</strong> cho người dùng, dựa trên Region AWS. Nhận diện: "giảm latency cho user toàn cầu".</li>
+<li><strong>Failover:</strong> mô hình <strong>active-passive</strong>. Chính chạy, phụ đứng chờ. Kết hợp <strong>Health Check</strong>: chính chết thì tự chuyển sang phụ. Nhận diện: disaster recovery, primary / secondary.</li>
+<li><strong>Geolocation:</strong> định tuyến theo <strong>vị trí địa lý của người dùng</strong> (châu lục / quốc gia). Dùng để phục vụ nội dung theo ngôn ngữ, tuân thủ quy định địa phương. Đừng nhầm với Latency-based.</li>
+<li><strong>Geoproximity:</strong> định tuyến theo vị trí địa lý của cả user và tài nguyên, có thể nới/thu phạm vi bằng bias. Ở mức khái niệm cho SAA-C03.</li>
+<li><strong>Multivalue Answer:</strong> trả về <strong>nhiều giá trị</strong> (nhiều IP) kèm health check cho từng giá trị — giống Simple nhưng thông minh hơn, endpoint chết sẽ bị loại khỏi đáp án.</li>
+</ul>
+<h3>5. CloudFront là gì?</h3>
+<p><strong>Amazon CloudFront</strong> là dịch vụ <strong>CDN (Content Delivery Network)</strong>. CloudFront sao chép nội dung tới các <strong>Edge Location</strong> nằm rải khắp thế giới, gần người dùng. User ở Việt Nam tải file từ edge gần Việt Nam thay vì bay sang server gốc ở Mỹ — nhanh hơn nhiều và giảm tải cho origin.</p>
+<ul>
+<li><strong>Origin:</strong> nguồn gốc nội dung — có thể là <strong>S3 bucket, Application Load Balancer, EC2</strong>, hoặc một HTTP server on-premises.</li>
+<li><strong>Distribution:</strong> cấu hình CloudFront trỏ tới một origin.</li>
+<li>Nội dung được <strong>cache</strong> tại edge trong một khoảng thời gian (TTL). Hết TTL, edge mới về origin lấy bản mới.</li>
+</ul>
+<h3>6. OAC — Khóa S3 chỉ cho CloudFront vào</h3>
+<p>Bài toán kinh điển: bạn muốn user chỉ xem được file qua CloudFront, không ai lấy được link S3 trực tiếp để tải lậu.</p>
+<p>Đáp án: dùng <strong>Origin Access Control (OAC)</strong>. Bạn cấu hình S3 bucket thành private, và bucket policy chỉ cho phép đúng CloudFront distribution của bạn truy cập. OAC là cơ chế hiện tại thay cho cơ chế cũ OAI (Origin Access Identity).</p>
+<h3>7. Signed URL vs Signed Cookies</h3>
+<p>Khi nội dung là trả phí / riêng tư, cache công khai là không đủ:</p>
+<ul>
+<li><strong>Signed URL:</strong> một URL có chữ ký và thời hạn, cấp quyền truy cập tới <strong>một file duy nhất</strong>. Hợp để bán từng file: một khóa học, một ebook.</li>
+<li><strong>Signed Cookies:</strong> cookie có chữ ký đính vào trình duyệt, cấp quyền truy cập tới <strong>nhiều file</strong> cùng lúc. Hợp khi user đã đăng nhập và cần xem cả một thư viện video.</li>
+</ul>
+<h3>8. Cache Invalidation</h3>
+<p>Khi bạn cập nhật file ở origin nhưng edge vẫn giữ bản cache cũ, bạn cần <strong>Cache Invalidation</strong> để xóa cache trước hạn. Ở mức khái niệm: invalidation <strong>có tốn phí sau khi dùng hết hạn mức miễn phí</strong> — và vì tốn phí + không nên lạm dụng, cách làm tốt hơn thường là đặt tên file có version (ví dụ <code>style-v2.css</code>) thay vì invalidate liên tục.</p>
+<h3>9. Chứng chỉ HTTPS cho CloudFront — Bẫy Region</h3>
+<p>Muốn dùng custom domain + HTTPS trên CloudFront, bạn cấp chứng chỉ bằng <strong>AWS Certificate Manager (ACM)</strong>. Bẫy kinh điển: chứng chỉ dùng cho CloudFront <strong>bắt buộc phải ở Region us-east-1</strong>, dù origin của bạn nằm ở bất kỳ Region nào khác.</p>
+<h2>Ví dụ đời thường</h2>
+<p>Route 53 giống tổng đài danh bạ 1080 ngày xưa: bạn đọc tên "quán phở Hòa" thì tổng đài trả số điện thoại. Còn Routing Policy là cách tổng đài chọn số nào để trả:</p>
+<ul>
+<li>Có một quán duy nhất -&gt; đọc luôn số đó (Simple).</li>
+<li>Hai chi nhánh, muốn thử nghiệm chi nhánh mới với 20% khách -&gt; Weighted.</li>
+<li>Khách ở Hà Nội thì giới thiệu chi nhánh gần nhất, ít phải chờ -&gt; Latency-based.</li>
+<li>Chi nhánh chính mất điện thì tự động giới thiệu chi nhánh dự phòng -&gt; Failover.</li>
+<li>Khách gọi từ nước nào thì giới thiệu thực đơn của nước đó -&gt; Geolocation.</li>
+</ul>
+<p>CloudFront giống chuỗi kho hàng của một sàn thương mại điện tử: thay vì mọi đơn đều ship từ tổng kho ở Mỹ mất cả tuần, sàn đặt sẵn hàng ở kho Hà Nội, kho Singapore. Khách gần kho nào thì nhận từ kho đó. S3 là tổng kho (Origin), các kho vùng là Edge Location, OAC là quy định "chỉ nhân viên giao hàng của hãng mới được vào tổng kho lấy hàng, khách không tự vào được".</p>
+<h2>Phân biệt dễ nhầm</h2>
+<h3>CNAME vs Alias</h3>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>CNAME</th>
+<th>Alias</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trỏ tới</td>
+<td>Hostname khác</td>
+<td>Tài nguyên AWS (ALB, CloudFront, S3...)</td>
+</tr>
+<tr>
+<td>Dùng ở zone apex (<code>example.com</code>)</td>
+<td>Không</td>
+<td>Có</td>
+</tr>
+<tr>
+<td>Của ai</td>
+<td>Chuẩn DNS chung</td>
+<td>Đặc sản riêng Route 53</td>
+</tr>
+</tbody>
+</table>
+<h3>Geolocation vs Latency-based</h3>
+<ul>
+<li>Latency-based: chọn nơi <strong>nhanh nhất</strong> cho user.</li>
+<li>Geolocation: chọn nơi <strong>đúng vùng địa lý</strong> của user, dù nơi đó chưa chắc nhanh nhất. Đề nhắc "tuân thủ luật địa phương / nội dung theo quốc gia" là Geolocation.</li>
+</ul>
+<h3>Signed URL vs Signed Cookies</h3>
+<ul>
+<li>1 file -&gt; Signed URL.</li>
+<li>Nhiều file -&gt; Signed Cookies.</li>
+</ul>
+<h3>CloudFront vs Global Accelerator</h3>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>CloudFront</th>
+<th>Global Accelerator</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bản chất</td>
+<td>CDN có cache nội dung</td>
+<td>Tăng tốc đường truyền, không cache</td>
+</tr>
+<tr>
+<td>Hợp nhất cho</td>
+<td>HTTP/HTTPS: web, ảnh, video</td>
+<td>Non-HTTP, gaming, TCP/UDP</td>
+</tr>
+<tr>
+<td>Địa chỉ</td>
+<td>DNS name của distribution</td>
+<td>2 static Anycast IP</td>
+</tr>
+<tr>
+<td>Đường đi</td>
+<td>Từ Edge Location về origin</td>
+<td>Qua mạng riêng AWS</td>
+</tr>
+</tbody>
+</table>
+<p><strong>AWS Global Accelerator (GA)</strong> đưa traffic vào mạng riêng của AWS càng sớm càng tốt và cấp <strong>2 static IP (Anycast)</strong> — cùng một IP nhưng định tuyến tới điểm vào gần nhất. Đề nhắc "game cần kết nối UDP ổn định, IP cố định" là GA. Đề nhắc "phân phối ảnh/video/web tĩnh cho user toàn cầu" là CloudFront.</p>
+<h2>Bẫy đề thi</h2>
+<ol>
+<li><strong>Zone apex + ALB</strong> — Cần trỏ <code>example.com</code> (không có www) tới ALB: CNAME không làm được, phải dùng <strong>Alias</strong>.</li>
+<li><strong>ACM certificate cho CloudFront phải ở us-east-1</strong> — Đề cho bạn tạo cert ở ap-southeast-1 rồi không gắn được vào CloudFront, đáp án là tạo lại cert ở us-east-1.</li>
+<li><strong>User tải trực tiếp từ S3, bỏ qua CloudFront</strong> — Giải quyết bằng OAC + bucket private, không phải bằng cách đổi tên file cho khó đoán.</li>
+<li><strong>Nhiều file trả phí</strong> — Chọn Signed Cookies thay vì ngồi tạo Signed URL cho từng file.</li>
+<li><strong>Weighted vs Failover</strong> — Thấy tỉ lệ phần trăm là Weighted, thấy primary chết chuyển secondary là Failover. Hai policy này hay bị trộn.</li>
+<li><strong>Global Accelerator cho nội dung cache</strong> — GA không cache. Cần cache để giảm tải origin thì phải là CloudFront.</li>
+</ol>
+<h2>Tóm tắt 5 dòng</h2>
+<p>Route 53 là DNS + đăng ký domain với SLA 100% ở mức khái niệm; Alias là record riêng của Route 53, trỏ được tới ALB/CloudFront/S3 và dùng được cho zone apex.
+Routing Policies: Weighted chia theo tỉ trọng, Latency-based chọn nơi trễ thấp nhất, Failover active-passive kèm Health Check, Geolocation theo vị trí user.
+CloudFront là CDN đưa nội dung ra Edge Location gần user, origin phổ biến là S3, ALB, EC2.
+Dùng OAC để khóa S3 private chỉ cho CloudFront vào; Signed URL cho 1 file, Signed Cookies cho nhiều file; cert ACM cho CloudFront phải ở us-east-1.
+Global Accelerator không cache, cấp 2 static Anycast IP, hợp cho non-HTTP/gaming/TCP-UDP; CloudFront hợp cho HTTP content cần cache.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-09.html">← Bài 09 — VPC: Mạng Riêng Trên AWS</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-11.html">Bài 11 — Giám Sát: CloudWatch, CloudTrail & AWS Config →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-10"; window.QUIZ_DATA = [{"n": 1, "text": "A company needs to point the zone apex domain `example.com` (without `www`) to an Application Load Balancer. Which Route 53 record type should be used?", "options": {"A": "A record pointing to the load balancer IP address", "B": "CNAME record", "C": "Alias record", "D": "AAAA record"}, "answer": "C", "explanation": "Giải thích tiếng Việt: Zone apex không dùng được CNAME, còn địa chỉ của ALB là hostname chứ không phải IP cố định nên A/AAAA cũng không hợp. **Alias** là record riêng của Route 53 sinh ra đúng cho việc này: trỏ apex tới ALB."}, {"n": 2, "text": "A company wants to gradually shift traffic to a new version of its application: 20% of users should reach the new version and 80% the old version. Which Route 53 routing policy meets this requirement?", "options": {"A": "Failover routing", "B": "Latency-based routing", "C": "Geolocation routing", "D": "Weighted routing"}, "answer": "D", "explanation": "Giải thích tiếng Việt: Thấy tỉ lệ phần trăm chia traffic (20/80) là dấu hiệu nhận diện của **Weighted routing**. Failover là chính/phụ khi có sự cố, không chia theo tỉ trọng."}, {"n": 3, "text": "Users must access paid video files only through CloudFront. Direct access to the underlying S3 bucket must be blocked. What should the architect configure?", "options": {"A": "Make the S3 bucket public and enable versioning", "B": "Use Origin Access Control (OAC) and keep the bucket private", "C": "Create Signed URLs for the bucket website endpoint", "D": "Enable S3 Transfer Acceleration"}, "answer": "B", "explanation": "Giải thích tiếng Việt: **OAC** kết hợp bucket private là cách chuẩn để khóa S3, chỉ cho đúng CloudFront distribution truy cập. Bucket public thì ai cũng vào thẳng được, trái với yêu cầu đề bài."}, {"n": 4, "text": "A gaming company needs to improve connection stability for its global UDP-based game traffic and requires static IP addresses for its endpoints. Which service is the BEST choice?", "options": {"A": "Amazon CloudFront", "B": "AWS Global Accelerator", "C": "Route 53 Latency-based routing", "D": "Amazon API Gateway"}, "answer": "B", "explanation": "Giải thích tiếng Việt: Traffic **UDP / non-HTTP** cho gaming + cần **static IP** là bài toán của **Global Accelerator**: 2 static Anycast IP và đường truyền qua mạng riêng AWS. CloudFront là CDN cho HTTP content có cache, không phù hợp cho UDP gaming."}, {"n": 5, "text": "A development team created an ACM certificate in ap-southeast-1 but cannot associate it with their CloudFront distribution. What is the cause?", "options": {"A": "CloudFront does not support HTTPS", "B": "The certificate must be requested in us-east-1 for CloudFront", "C": "The distribution must be recreated in ap-southeast-1", "D": "ACM certificates expire after one day"}, "answer": "B", "explanation": "Giải thích tiếng Việt: Bẫy Region kinh điển — chứng chỉ ACM dùng cho CloudFront **bắt buộc ở us-east-1**, bất kể origin ở Region nào. Phải xin lại cert ở us-east-1 rồi mới gắn vào distribution được."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

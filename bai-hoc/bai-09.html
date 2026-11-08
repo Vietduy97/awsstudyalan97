@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 09 — VPC: Mạng Riêng Trên AWS — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 09 — VPC: Mạng Riêng Trên AWS</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Hiểu VPC là gì và vì sao mọi EC2, RDS, Lambda cần sống trong một VPC.</li>
+<li>Phân biệt được Public Subnet và Private Subnet, biết đọc Route Table.</li>
+<li>Nắm chắc cặp phân biệt kinh điển của đề thi: Security Group vs Network ACL.</li>
+<li>Biết khi nào dùng NAT Gateway, VPC Endpoint, VPC Peering, Transit Gateway.</li>
+<li>Biết dùng VPC Flow Logs và Bastion Host đúng chỗ.</li>
+</ul>
+<h2>Lý thuyết chính (tiếng Việt, giữ thuật ngữ English)</h2>
+<h3>1. VPC và CIDR Block</h3>
+<p><strong>Virtual Private Cloud (VPC)</strong> là mạng riêng ảo của riêng bạn trên AWS. Bạn tự định nghĩa dải IP, chia subnet, đặt rule truy cập — giống như bạn tự kéo cáp mạng trong data center của mình, chỉ khác là nó nằm trên cloud.</p>
+<p>Khi tạo VPC, bạn phải chọn một <strong>CIDR Block</strong>, ví dụ <code>10.0.0.0/16</code>. Đây là dải IP private cho toàn bộ VPC. Mọi tài nguyên trong VPC sẽ lấy IP từ dải này. Chọn CIDR rồi rất khó đổi, nên hãy chọn rộng vừa đủ ngay từ đầu.</p>
+<p>Một VPC nằm trong một <strong>Region</strong> nhưng có thể trải dài qua nhiều <strong>Availability Zone (AZ)</strong>.</p>
+<h3>2. Subnet — Public vs Private</h3>
+<p><strong>Subnet</strong> là một đoạn nhỏ của VPC, gắn với một AZ cụ thể.</p>
+<ul>
+<li><strong>Public Subnet:</strong> có route trong Route Table trỏ ra <strong>Internet Gateway (IGW)</strong>. Tài nguyên trong public subnet (có Public IP) giao tiếp hai chiều được với internet. Ví dụ: ALB, Bastion Host, NAT Gateway.</li>
+<li><strong>Private Subnet:</strong> KHÔNG có route ra IGW. Tài nguyên trong đây không truy cập trực tiếp được từ internet, và internet cũng không vào trực tiếp được. Ví dụ: EC2 chạy app thật, RDS database.</li>
+</ul>
+<p>Lưu ý quan trọng cho đề thi: subnet là public hay private không phải do cái tên, mà do <strong>Route Table</strong> của nó có route <code>0.0.0.0/0 -&gt; IGW</code> hay không.</p>
+<h3>3. Route Table</h3>
+<p><strong>Route Table</strong> là bảng chỉ đường cho một subnet: gói tin đi tới dải IP nào thì rẽ sang đâu.</p>
+<p>Mỗi subnet gắn với đúng một Route Table. Route tới dải IP của chính VPC luôn có sẵn và gọi là <strong>local route</strong> — không xóa được.</p>
+<p>Ví dụ đọc bảng:</p>
+<ul>
+<li><code>10.0.0.0/16 -&gt; local</code>: đi trong VPC thì đi thẳng.</li>
+<li><code>0.0.0.0/0 -&gt; igw-xxxx</code>: còn lại, ra internet qua IGW.</li>
+<li><code>0.0.0.0/0 -&gt; nat-xxxx</code>: còn lại, ra internet qua NAT Gateway.</li>
+</ul>
+<h3>4. NAT Gateway</h3>
+<p><strong>NAT Gateway</strong> đặt ở <strong>Public Subnet</strong>, cho phép tài nguyên trong <strong>Private Subnet</strong> chủ động ra internet (để tải patch, gọi API bên ngoài) nhưng internet KHÔNG chủ động vào lại được — tức là kết nối <strong>một chiều ra</strong>.</p>
+<p>Bẫy chi phí kinh điển: NAT Gateway <strong>tốn phí theo giờ + phí theo GB dữ liệu xử lý</strong>. Nếu đề cho tình huống "private instance tải dữ liệu rất lớn từ S3, hóa đơn NAT tăng vọt" thì đáp án thường là dùng <strong>VPC Endpoint</strong> cho S3 thay vì đi qua NAT.</p>
+<p>NAT Gateway là dịch vụ managed, có tính sẵn sàng cao trong một AZ. Muốn HA nhiều AZ thì mỗi AZ đặt một NAT Gateway riêng.</p>
+<h3>5. Security Group</h3>
+<p><strong>Security Group (SG)</strong> là tường lửa ảo gắn vào <strong>instance / ENI (Elastic Network Interface)</strong>.</p>
+<ul>
+<li><strong>Stateful:</strong> nếu bạn cho phép traffic vào, traffic trả lời đi ra sẽ tự động được phép, và ngược lại. Bạn không cần viết rule cho chiều trả lời.</li>
+<li>Chỉ có rule <strong>Allow</strong>, KHÔNG có rule Deny. Không ghi gì = mặc định chặn.</li>
+<li>Đánh giá <strong>tất cả</strong> các rule cùng lúc để quyết định.</li>
+<li>Rule có thể tham chiếu tới một Security Group khác — rất hay dùng: cho SG của app tham chiếu SG của ALB, thay vì mở IP lung tung.</li>
+</ul>
+<h3>6. Network ACL (NACL)</h3>
+<p><strong>Network Access Control List (NACL)</strong> là tường lửa gắn vào <strong>Subnet</strong>.</p>
+<ul>
+<li><strong>Stateless:</strong> traffic vào và traffic trả lời đi ra là hai chuyện riêng. Bạn phải mở rule cho cả hai chiều, kể cả các cổng trả lời tạm thời (ephemeral ports).</li>
+<li>Có cả rule <strong>Allow</strong> và <strong>Deny</strong>.</li>
+<li>Rule được đánh số — <strong>Rule Number</strong>. Rule có số <strong>thấp hơn được xét trước</strong> và thắng trước. Vừa khớp rule nào là dừng, không xét tiếp.</li>
+<li>Một subnet chỉ gắn với một NACL, nhưng một NACL có thể gắn cho nhiều subnet.</li>
+</ul>
+<h3>7. VPC Endpoints</h3>
+<p>Mặc định, từ VPC đi tới các dịch vụ AWS như S3, DynamoDB vẫn có thể phải vòng ra internet. <strong>VPC Endpoint</strong> tạo đường riêng trong mạng AWS, không ra internet công cộng.</p>
+<ul>
+<li><strong>Gateway Endpoint:</strong> chỉ hỗ trợ <strong>S3 và DynamoDB</strong>, <strong>miễn phí</strong>, thực chất là thêm một route vào Route Table.</li>
+<li><strong>Interface Endpoint (AWS PrivateLink):</strong> hỗ trợ hầu hết các dịch vụ AWS khác, tạo một ENI có Private IP trong subnet của bạn. <strong>Có phí</strong> theo giờ + theo GB.</li>
+</ul>
+<p>Đề hỏi "private subnet truy cập S3 mà không qua internet, rẻ nhất" -&gt; Gateway Endpoint.</p>
+<h3>8. Kết nối các VPC: Peering vs Transit Gateway</h3>
+<ul>
+<li><strong>VPC Peering:</strong> kết nối 1-1 giữa hai VPC. <strong>Không có tính transitive</strong> — A peer với B, B peer với C thì A vẫn KHÔNG đi tới C qua B được. CIDR của hai VPC peer không được trùng nhau.</li>
+<li><strong>Transit Gateway:</strong> là một <strong>hub</strong> trung tâm. Nhiều VPC và cả mạng on-premises cùng nối vào hub này. <strong>Có transitive</strong> — mọi spoke nói chuyện được với nhau qua hub. Đề cho "hàng chục VPC cần kết nối với nhau" thì chọn Transit Gateway.</li>
+</ul>
+<h3>9. VPC Flow Logs</h3>
+<p><strong>VPC Flow Logs</strong> ghi lại thông tin về traffic IP đi vào/ra các network interface trong VPC: IP nguồn/đích, port, protocol, ACCEPT hay REJECT. Gửi log về CloudWatch Logs hoặc S3 để điều tra sự cố mạng và bảo mật. Flow Logs không ghi nội dung gói tin, chỉ ghi metadata.</p>
+<h3>10. Bastion Host</h3>
+<p><strong>Bastion Host</strong> (hay Jump Box) là một EC2 nhỏ đặt ở Public Subnet, là cửa duy nhất để quản trị viên SSH/RDP vào, rồi từ đó mới nhảy tiếp vào các instance trong Private Subnet. Không bao giờ mở SSH trực tiếp cho private instance ra internet.</p>
+<h2>Ví dụ đời thường</h2>
+<p>Hãy tưởng tượng VPC là một khu chung cư có cổng bảo vệ là của riêng bạn.</p>
+<ul>
+<li><strong>CIDR Block</strong> là toàn bộ địa chỉ của khu: từ số nhà 10.0.0.1 tới 10.0.255.255.</li>
+<li><strong>Public Subnet</strong> là dãy nhà mặt tiền, mở cửa ra đường lớn (Internet Gateway) — ai đi qua cũng nhìn thấy: đó là sảnh lễ tân, quán cà phê (ALB, Bastion).</li>
+<li><strong>Private Subnet</strong> là dãy nhà phía trong, không có cửa ra đường. Người ngoài không tự vào được. Cư dân bên trong (EC2, RDS chứa dữ liệu quý) sống yên tĩnh ở đây.</li>
+<li><strong>NAT Gateway</strong> giống anh bảo vệ chạy việc vặt: người ở trong nhờ anh ra ngoài mua đồ (tải bản vá) thì được, nhưng người lạ ngoài đường không nhờ anh dẫn vào nhà được.</li>
+<li><strong>Security Group</strong> là khóa thông minh gắn trên từng căn hộ, nhớ ai đã được cho vào thì tự mở cửa cho họ ra — đó là stateful.</li>
+<li><strong>NACL</strong> là chốt kiểm soát ở cổng từng dãy nhà: kiểm tra cả lượt vào lẫn lượt ra, có danh sách cấm rõ ràng, ai mang số thứ tự (Rule Number) nhỏ hơn thì được xét trước.</li>
+<li><strong>VPC Endpoint</strong> là đường hầm nội bộ từ khu chung cư đi thẳng tới siêu thị S3 mà không cần ra đường lớn.</li>
+<li><strong>Bastion Host</strong> là phòng bảo vệ: bạn phải trình giấy ở đây trước, rồi mới được dẫn vào trong.</li>
+</ul>
+<h2>Phân biệt dễ nhầm</h2>
+<h3>Security Group vs Network ACL — Cặp phân biệt quan trọng nhất bài này</h3>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Security Group</th>
+<th>Network ACL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gắn vào</td>
+<td>Instance / ENI</td>
+<td>Subnet</td>
+</tr>
+<tr>
+<td>Stateful / Stateless</td>
+<td>Stateful</td>
+<td>Stateless</td>
+</tr>
+<tr>
+<td>Loại rule</td>
+<td>Chỉ Allow</td>
+<td>Allow + Deny</td>
+</tr>
+<tr>
+<td>Thứ tự xét rule</td>
+<td>Xét tất cả rule</td>
+<td>Theo Rule Number, số thấp thắng trước</td>
+</tr>
+<tr>
+<td>Phạm vi ảnh hưởng</td>
+<td>Chỉ tài nguyên được gắn</td>
+<td>Mọi tài nguyên trong subnet</td>
+</tr>
+</tbody>
+</table>
+<p>Nhớ mẹo: <strong>SG = Stateful, gắn Instance. NACL = Stateless, gắn Subnet.</strong> Thấy chữ "Deny một dải IP cụ thể" trong đề -&gt; chỉ NACL làm được, SG không có Deny.</p>
+<h3>Gateway Endpoint vs Interface Endpoint</h3>
+<ul>
+<li>Gateway Endpoint: chỉ S3 + DynamoDB, miễn phí, là route trong Route Table.</li>
+<li>Interface Endpoint: nhiều dịch vụ, qua PrivateLink, có ENI + Private IP, có phí.</li>
+</ul>
+<h3>VPC Peering vs Transit Gateway</h3>
+<ul>
+<li>Peering: 1-1, không transitive, nhiều VPC sẽ thành mớ bòng bong.</li>
+<li>Transit Gateway: mô hình hub-and-spoke, có transitive, quản lý tập trung.</li>
+</ul>
+<h3>Public Subnet vs Private Subnet</h3>
+<p>Khác nhau ở Route Table: có route ra IGW là public, không có là private. Đặt tên "private" mà gắn route ra IGW thì nó vẫn là public.</p>
+<h2>Bẫy đề thi</h2>
+<ol>
+<li><strong>"Block một IP xấu cụ thể"</strong> — Đừng chọn Security Group. SG không có Deny. Phải dùng NACL với rule Deny.</li>
+<li><strong>Quên ephemeral ports với NACL</strong> — Vì NACL stateless, mở port 443 vào mà quên mở port trả lời đi ra là traffic vẫn chết. SG thì không gặp lỗi này vì stateful.</li>
+<li><strong>NAT Gateway tốn tiền</strong> — Đề kể chi phí NAT tăng bất thường khi tải nhiều từ S3/DynamoDB: đáp án là Gateway VPC Endpoint (miễn phí).</li>
+<li><strong>Peering không transitive</strong> — A-B, B-C không suy ra A-C. Cần A nói chuyện với C thì peer trực tiếp A-C hoặc dùng Transit Gateway.</li>
+<li><strong>NAT Gateway phải đặt ở Public Subnet</strong> — Đặt NAT vào private subnet là sai kiến trúc kinh điển trong các phương án nhiễu.</li>
+<li><strong>Gateway Endpoint chỉ có 2 dịch vụ</strong> — Thấy SQS, SNS, KMS mà chọn Gateway Endpoint là sai, phải là Interface Endpoint.</li>
+</ol>
+<h2>Tóm tắt 5 dòng</h2>
+<p>VPC là mạng riêng của bạn trên AWS, chia thành Public Subnet (có route ra Internet Gateway) và Private Subnet (không có).
+NAT Gateway đặt ở Public Subnet cho Private Subnet ra internet một chiều, nhưng tốn phí theo giờ và theo GB.
+Security Group stateful, chỉ Allow, gắn vào instance; NACL stateless, có Allow + Deny, gắn vào subnet, Rule Number thấp thắng trước.
+Gateway Endpoint miễn phí chỉ cho S3 và DynamoDB, Interface Endpoint qua PrivateLink có phí cho các dịch vụ khác.
+VPC Peering không transitive, Transit Gateway là hub có transitive; Flow Logs ghi metadata traffic, Bastion Host là cửa SSH/RDP duy nhất vào vùng private.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-08.html">← Bài 08 — DynamoDB & Aurora: NoSQL tốc độ cao và SQL “xịn” của AWS</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-10.html">Bài 10 — Route 53 & CloudFront: DNS và CDN →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-09"; window.QUIZ_DATA = [{"n": 1, "text": "A security team must explicitly block all traffic from a specific malicious IP address range to instances in a subnet. Which AWS feature should they use?", "options": {"A": "Security Group with a deny rule", "B": "Network ACL with a deny rule", "C": "Route Table with a blackhole route to the internet gateway", "D": "VPC Flow Logs with an alarm"}, "answer": "B", "explanation": "Giải thích tiếng Việt: Chỉ Network ACL mới có rule **Deny** rõ ràng. Security Group chỉ có Allow nên phương án A tự nó đã sai về mặt kỹ thuật. Flow Logs chỉ ghi log, không chặn traffic."}, {"n": 2, "text": "Instances in a private subnet download large amounts of data from Amazon S3 every day. The NAT Gateway data processing charges have become very high. What is the MOST cost-effective solution?", "options": {"A": "Move the instances to a public subnet", "B": "Add a second NAT Gateway in another Availability Zone", "C": "Create a Gateway VPC Endpoint for Amazon S3", "D": "Create an Interface VPC Endpoint for Amazon S3"}, "answer": "C", "explanation": "Giải thích tiếng Việt: S3 thuộc 2 dịch vụ được Gateway Endpoint hỗ trợ và Gateway Endpoint miễn phí. Traffic đi S3 qua endpoint sẽ không còn đi qua NAT Gateway nữa nên cắt được phí xử lý dữ liệu. Interface Endpoint cũng đi được tới S3 nhưng có phí, không tối ưu chi phí bằng Gateway Endpoint."}, {"n": 3, "text": "VPC A is peered with VPC B, and VPC B is peered with VPC C. An application in VPC A needs to communicate with a database in VPC C. What should the architect do?", "options": {"A": "Nothing, VPC peering is transitive by default", "B": "Update the Security Group in VPC B to allow forwarding", "C": "Create a direct VPC peering connection between VPC A and VPC C, or use a Transit Gateway", "D": "Add the CIDR of VPC C to the Network ACL of VPC B"}, "answer": "C", "explanation": "Giải thích tiếng Việt: VPC Peering **không transitive** — A không đi nhờ B để tới C được. Muốn A nói chuyện với C phải peer trực tiếp A-C hoặc đưa cả ba VPC vào Transit Gateway làm hub."}, {"n": 4, "text": "Which statement about Security Groups is correct?", "options": {"A": "They are stateless and require rules for return traffic", "B": "They support both allow and deny rules", "C": "They are stateful, and return traffic is automatically allowed", "D": "They are evaluated in order of rule number, lowest first"}, "answer": "C", "explanation": "Giải thích tiếng Việt: Security Group là **stateful**: cho phép chiều vào thì chiều trả lời tự động được phép. Các mô tả stateless, có Deny, xét theo Rule Number đều là đặc điểm của NACL, đề cố tình trộn sang."}, {"n": 5, "text": "A company has 30 VPCs that all need to communicate with each other and with an on-premises network through a central hub. Which service is the BEST choice?", "options": {"A": "VPC Peering between every pair of VPCs", "B": "NAT Gateway", "C": "AWS Transit Gateway", "D": "Internet Gateway"}, "answer": "C", "explanation": "Giải thích tiếng Việt: Số lượng VPC lớn + cần kết nối tập trung + cần transitive là dấu hiệu nhận diện của **Transit Gateway** (mô hình hub-and-spoke). Peering từng cặp với 30 VPC sẽ tạo ra hàng trăm kết nối, rất khó quản lý và vẫn không transitive."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

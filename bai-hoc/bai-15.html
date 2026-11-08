@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 15 — API Gateway: Cổng vào của kiến trúc Serverless — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 2 · SAA nâng cao</p>
+  <div class="md-body"><h1>Bài 15 — API Gateway: Cổng vào của kiến trúc Serverless</h1>
+<h2>Mục tiêu bài học</h2>
+<p>Sau bài này, bạn sẽ có thể:</p>
+<ul>
+<li>Phân biệt REST API, HTTP API và WebSocket API trong Amazon API Gateway theo tính năng, chi phí và use case, chọn đúng loại trong đề thi.</li>
+<li>Giải thích Lambda Proxy Integration và mẫu kiến trúc kinh điển <strong>API Gateway + Lambda</strong>.</li>
+<li>Chọn đúng cơ chế ủy quyền: IAM, Amazon Cognito User Pools, Lambda Authorizer.</li>
+<li>Áp dụng Throttling, API Caching, Usage Plans và API Keys để bảo vệ và tối ưu backend.</li>
+<li>Hiểu vòng đời Stage, Deployment, Stage Variables và nhận diện lỗi 429 / 502 thường gặp ở mức khái niệm.</li>
+</ul>
+<h2>Lý thuyết chính</h2>
+<h3>1. API Gateway là gì?</h3>
+<p>Amazon API Gateway là dịch vụ fully managed để tạo, xuất bản, bảo mật và giám sát API ở mọi quy mô. Nó là "cửa trước" (front door): client không gọi thẳng vào Lambda / EC2 / ECS / DynamoDB mà đi qua API Gateway để được xác thực, throttle, cache và validate trước.</p>
+<pre><code>Mobile / Web Client → API Gateway → Lambda / HTTP backend / AWS service
+                         ↑
+              Auth, Throttling, Caching, Validation
+</code></pre>
+<h3>2. Ba loại API — Phân biệt cốt lõi</h3>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>REST API</th>
+<th>HTTP API</th>
+<th>WebSocket API</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tính năng</td>
+<td><strong>Đầy đủ nhất</strong>: API Keys, Usage Plans, Request Validation, Caching, WAF, Canary...</td>
+<td><strong>Thu gọn</strong>: tập trung vào proxy tới Lambda / HTTP backend, hỗ trợ JWT Authorizer</td>
+<td>Kết nối hai chiều persistent</td>
+</tr>
+<tr>
+<td>Chi phí / Độ trễ</td>
+<td>Cao hơn, độ trễ cao hơn một chút</td>
+<td><strong>Rẻ hơn</strong> (thấp hơn đáng kể), độ trễ thấp hơn</td>
+<td>Tính theo số message + phút kết nối</td>
+</tr>
+<tr>
+<td>Ủy quyền nổi bật</td>
+<td>IAM, Cognito, Lambda Authorizer, Resource Policy</td>
+<td>JWT (Cognito, OIDC), Lambda Authorizer, IAM</td>
+<td>IAM, Lambda Authorizer</td>
+</tr>
+<tr>
+<td>Dùng khi nào</td>
+<td>Cần kiểm soát chặt: public API có thu phí, cần caching/validation/usage plan</td>
+<td>Backend đơn giản cho Lambda, cần rẻ và nhanh, JWT là đủ</td>
+<td>Chat, thông báo realtime, game, dashboard live</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn nhanh cho đề thi:</strong>
+- Đề nhắc "usage plans, API keys, request validation, API caching, per-client throttling cho khách hàng bên thứ ba" → <strong>REST API</strong>.
+- Đề nhắc "chi phí thấp nhất, API đơn giản cho Lambda, xác thực bằng JWT / Cognito / OIDC" → <strong>HTTP API</strong>.
+- Đề nhắc "real-time two-way communication, chat application" → <strong>WebSocket API</strong>.</p>
+<h3>3. Lambda Proxy Integration — Mẫu serverless kinh điển</h3>
+<p>Với <strong>Lambda Proxy Integration</strong> (AWS_PROXY), API Gateway chuyển <strong>toàn bộ</strong> request (method, path, headers, query string, body) thành một JSON event đưa vào Lambda. Lambda trả về JSON gồm <code>statusCode</code>, <code>headers</code>, <code>body</code> và API Gateway biến nó thành HTTP response cho client.</p>
+<p>Ưu điểm: không cần viết Mapping Template, Lambda toàn quyền quyết định response. Đây là cách tích hợp mặc định được khuyên dùng và xuất hiện trong hầu hết scenario.</p>
+<p>Cách còn lại, <strong>Non-Proxy (Custom) Integration</strong>, dùng Mapping Template (VTL) để biến đổi request/response giữa client và backend — mạnh nhưng phức tạp, thường chỉ cần khi tích hợp trực tiếp với DynamoDB / SQS / EC2 HTTP backend mà không qua Lambda.</p>
+<p><strong>Cặp bài trùng API Gateway + Lambda:</strong>
+API Gateway lo phần HTTP (routing, auth, throttle, cache), Lambda lo logic nghiệp vụ, cả hai đều serverless, tự scale và trả tiền theo request. Cộng thêm DynamoDB là thành bộ ba serverless kinh điển của SAA-C03.</p>
+<blockquote>
+<p><strong>Tình huống thực tế:</strong> Một startup làm API cho mobile app: <code>POST /orders</code> → API Gateway → Lambda tạo đơn → DynamoDB. Lúc 10 user hay 100.000 user, kiến trúc không đổi, không server nào phải vận hành, chi phí tăng tuyến tính theo số request thực tế.</p>
+</blockquote>
+<h3>4. Ủy quyền và Bảo mật (Authorization)</h3>
+<p>API Gateway hỗ trợ nhiều cơ chế — đề thi kiểm tra bạn chọn đúng theo loại người dùng:</p>
+<table>
+<thead>
+<tr>
+<th>Cơ chế</th>
+<th>Đối tượng</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>IAM Authorization</strong></td>
+<td>AWS user/role, ứng dụng trong AWS</td>
+<td>Dùng IAM Policy + chữ ký SigV4. Hợp cho API nội bộ, service-to-service trong AWS</td>
+</tr>
+<tr>
+<td><strong>Cognito User Pools Authorizer</strong></td>
+<td>Người dùng cuối (end user)</td>
+<td>User đăng nhập qua Cognito, gửi JWT (ID Token) trong header, API Gateway tự validate với User Pool</td>
+</tr>
+<tr>
+<td><strong>Lambda Authorizer</strong> (trước đây gọi là Custom Authorizer)</td>
+<td>Logic tùy biến, hệ thống auth bên ngoài</td>
+<td>Một Lambda nhận token, tự kiểm tra (với DB, OAuth bên thứ ba...) và trả về IAM Policy cho phép/chặn. Kết quả được cache theo token để giảm số lần gọi Lambda</td>
+</tr>
+<tr>
+<td><strong>JWT Authorizer (HTTP API)</strong></td>
+<td>OIDC provider, Cognito</td>
+<td>API Gateway tự validate JWT theo issuer/audience mà không cần Lambda</td>
+</tr>
+<tr>
+<td><strong>Resource Policy + API Keys</strong></td>
+<td>Kiểm soát truy cập bổ sung</td>
+<td>Resource Policy chặn theo IP/source; API Key định danh client — lưu ý API Key <strong>không phải</strong> cơ chế bảo mật chính, phải kết hợp với Authorizer/Usage Plan</td>
+</tr>
+</tbody>
+</table>
+<p>Các lớp bảo vệ đi kèm: <strong>AWS WAF</strong> gắn vào REST API để chặn tấn công Layer 7, <strong>HTTPS bắt buộc</strong> với certificate ACM, <strong>CORS</strong> cấu hình cho trình duyệt gọi API khác domain.</p>
+<h3>5. Throttling — Chống backend bị quá tải</h3>
+<ul>
+<li><strong>Account-level Throttling:</strong> giới hạn tổng số request/giây trên toàn Region của tài khoản (mặc định ở mức khái niệm là 10.000 RPS với burst bằng token bucket) — bảo vệ toàn hệ thống.</li>
+<li><strong>Stage / API-level Throttling:</strong> đặt giới hạn riêng cho từng API hoặc từng Stage (ví dụ Stage prod = 1.000 RPS).</li>
+<li><strong>Usage Plan + API Key (chỉ REST API):</strong> gắn hạn mức riêng cho từng khách hàng: khách Free = 100 request/ngày, quota tháng cố định; khách trả phí = hạn mức cao hơn. Vượt hạn mức, API Gateway trả lỗi <strong>429 Too Many Requests</strong>.</li>
+<li>Throttling ở API Gateway giúp backend (đặc biệt là Lambda có concurrency limit hoặc một hệ thống legacy yếu) không bị dội bom khi traffic tăng đột biến.</li>
+</ul>
+<h3>6. API Caching</h3>
+<ul>
+<li>Chỉ có ở <strong>REST API</strong>: bật cache theo từng Stage, API Gateway lưu response trong cache (TTL mặc định 300 giây, cấu hình từ 0–3600 giây).</li>
+<li>Request giống nhau trong TTL sẽ nhận response từ cache mà <strong>không chạm vào backend</strong> → giảm độ trễ, giảm số lần gọi Lambda/EC2, giảm chi phí backend.</li>
+<li>Kích thước cache có nhiều mức trả phí theo giờ. Có thể mã hóa cache và cho phép client bỏ qua cache bằng header khi cần.</li>
+</ul>
+<blockquote>
+<p><strong>Tình huống thực tế:</strong> API danh mục sản phẩm ít thay đổi bị gọi 1 triệu lần/ngày làm Lambda và DynamoDB tốn chi phí đọc. Bật API Caching với TTL 300s, 5 phút mới có một request thật sự chạm backend, còn lại trả từ cache.</p>
+</blockquote>
+<h3>7. Stage, Deployment và Stage Variables</h3>
+<ul>
+<li><strong>Deployment:</strong> một bản snapshot (ảnh chụp) của cấu hình API tại một thời điểm. Sửa API xong phải <strong>deploy lại</strong> thì thay đổi mới có hiệu lực (với REST API).</li>
+<li><strong>Stage:</strong> một môi trường của bản deployment: <code>dev</code>, <code>test</code>, <code>prod</code>. Mỗi Stage có URL riêng dạng <code>https://{api-id}.execute-api.{region}.amazonaws.com/{stage}</code>.</li>
+<li><strong>Stage Variables:</strong> biến cấu hình theo Stage, ví dụ Stage <code>prod</code> trỏ tới Lambda alias prod, Stage <code>dev</code> trỏ tới Lambda dev, dùng cùng một API definition cho nhiều môi trường. Cũng dùng để trỏ Canary Deployment.</li>
+<li><strong>Canary Release Deployment:</strong> phát hành bản mới cho một phần nhỏ traffic (ví dụ 10%) ở Stage prod, theo dõi lỗi rồi mới tăng lên 100% — biết ở mức khái niệm.</li>
+</ul>
+<h3>8. Request Validation và các tính năng REST API khác</h3>
+<ul>
+<li><strong>Request Validation:</strong> API Gateway kiểm tra request (tham số bắt buộc, kiểu dữ liệu theo Model/JSON Schema) và <strong>chặn request sai ngay tại cổng</strong>, backend không tốn công xử lý, trả lỗi 400 cho client.</li>
+<li><strong>Direct Integration với AWS Services:</strong> API Gateway có thể gọi thẳng DynamoDB, SQS, Step Functions... mà không cần Lambda trung gian.</li>
+<li><strong>Import/Export API:</strong> định nghĩa API bằng OpenAPI (Swagger), tích hợp với CloudFormation / SAM để quản lý dạng code.</li>
+</ul>
+<h3>9. Lỗi thường gặp ở mức khái niệm</h3>
+<ul>
+<li><strong>429 Too Many Requests:</strong> client vượt Throttling limit (account/stage/usage plan) hoặc Lambda concurrency qua trung gian. Cách xử lý: xem lại limit, yêu cầu tăng quota, thêm exponential backoff + retry phía client.</li>
+<li><strong>502 Bad Gateway:</strong> thường do Lambda trả response <strong>sai định dạng</strong> của Proxy Integration (thiếu <code>statusCode</code>, <code>body</code> không phải string JSON hợp lệ), hoặc backend integration lỗi / timeout ở tầng tích hợp. Gặp 502 trong scenario serverless, hãy nghĩ đầu tiên tới định dạng response của Lambda.</li>
+<li><strong>403 Forbidden:</strong> thiếu/không hợp lệ API Key, Authorizer từ chối, hoặc Resource Policy chặn.</li>
+<li><strong>504 Gateway Timeout:</strong> backend không trả lời trong giới hạn timeout tích hợp của API Gateway (29 giây cho REST API ở mức khái niệm hay được nhắc) — workload chạy lâu phải chuyển sang mẫu bất đồng bộ: API Gateway → SQS → Lambda xử lý nền, trả job ID cho client poll kết quả.</li>
+</ul>
+<h2>Ví dụ đời thường</h2>
+<p>Hãy hình dung API Gateway là <strong>lễ tân kiêm bảo vệ của một tòa nhà văn phòng</strong>:</p>
+<ul>
+<li>Khách (client) không tự đi thẳng vào phòng ban (Lambda, EC2) mà phải qua quầy lễ tân.</li>
+<li>Lễ tân kiểm tra <strong>giấy tờ</strong> trước: thẻ nhân viên nội bộ (IAM), thẻ cư dân đã đăng ký (Cognito), hoặc gọi cho một người chuyên xác minh khách lạ (Lambda Authorizer).</li>
+<li>Lễ tân giới hạn <strong>lượt khách</strong> mỗi giờ để tòa nhà không quá tải (Throttling); khách VIP mua gói dịch vụ được ưu tiên nhiều lượt hơn (Usage Plans + API Keys).</li>
+<li>Câu hỏi nào ngày nào cũng có người hỏi giống hệt (danh sách phòng ban) thì lễ tân <strong>trả lời từ sổ tay có sẵn</strong> thay vì gọi điện vào trong làm phiền (API Caching).</li>
+<li>Lễ tân cũng <strong>kiểm tra hồ sơ ngay tại quầy</strong>: thiếu giấy tờ thì trả về luôn, không chuyển vào trong (Request Validation).</li>
+<li>Tòa nhà có nhiều <strong>khu vực theo giai đoạn</strong> (Stage): khu thử nghiệm <code>dev</code> và khu chính thức <code>prod</code> — cùng một lễ tân nhưng dẫn khách tới đúng khu nhờ biển chỉ dẫn (Stage Variables).</li>
+</ul>
+<h2>Phân biệt dễ nhầm</h2>
+<p><strong>1. REST API vs HTTP API</strong>
+- REST API: đầy đủ tính năng — Caching, Usage Plans, API Keys, Request Validation, WAF tích hợp chặt. Đắt hơn.
+- HTTP API: rẻ hơn, nhanh hơn, ít tính năng hơn — không có Usage Plans/API Keys và Caching tích hợp kiểu REST. Hợp nhất với Lambda + JWT.
+- Bẫy: đề yêu cầu "API keys and usage plans for third-party developers" mà chọn HTTP API là sai.</p>
+<p><strong>2. Cognito User Pools Authorizer vs Lambda Authorizer</strong>
+- Cognito: user của bạn đăng nhập bằng hệ thống user pool có sẵn, API Gateway tự validate JWT — không cần viết code auth.
+- Lambda Authorizer: logic xác thực <strong>tùy biến</strong> hoặc nằm ở hệ thống bên ngoài AWS (OAuth provider riêng, database token riêng) — bạn tự viết Lambda kiểm tra và trả về Policy.</p>
+<p><strong>3. API Key vs Authorization</strong>
+- API Key chỉ để <strong>định danh và áp Usage Plan</strong> (biết client nào gọi, tính quota). Nó <strong>không phải</strong> là cơ chế bảo mật/ủy quyền thực sự. Luôn phải kết hợp API Key với IAM / Cognito / Lambda Authorizer.</p>
+<p><strong>4. Throttling ở API Gateway vs Lambda Concurrency</strong>
+- API Gateway Throttling chặn request ở cổng theo RPS/quota.
+- Lambda Reserved/Provisioned Concurrency giới hạn số execution đồng thời ở phía compute.
+- Lỗi 429 có thể đến từ một trong hai nơi — đọc kỹ scenario xem giới hạn nằm ở tầng nào.</p>
+<p><strong>5. API Caching vs Backend Caching (ElastiCache / DynamoDB DAX)</strong>
+- API Caching lưu <strong>HTTP response</strong> ngay tại API Gateway, backend hoàn toàn không bị gọi.
+- ElastiCache/DAX lưu dữ liệu ở tầng data, backend vẫn bị gọi nhưng đọc data nhanh hơn. Hai lớp này bổ sung nhau, không thay thế nhau.</p>
+<p><strong>6. Stage vs Deployment</strong>
+- Deployment là <strong>bản chụp cấu hình</strong>, Stage là <strong>môi trường trỏ tới một Deployment</strong>. Sửa API mà không deploy lại thì Stage vẫn chạy bản cũ — nguồn gốc của nhiều câu "đã sửa nhưng không có tác dụng".</p>
+<h2>Bẫy đề thi</h2>
+<ol>
+<li>
+<p><strong>Workload chạy lâu qua API Gateway đồng bộ.</strong> Tác vụ xử lý 5 phút gắn thẳng sau REST API sẽ dính timeout và trả 504. Mẫu đúng: API Gateway nhận request → đẩy vào SQS / khởi động Step Functions → trả về 202 + job ID ngay, client kiểm tra kết quả sau.</p>
+</li>
+<li>
+<p><strong>Chọn HTTP API vì rẻ nhưng đề lại yêu cầu Usage Plans.</strong> Tiết kiệm chi phí không thắng được yêu cầu tính năng: Usage Plans, API Keys, Request Validation, API Caching chỉ có đầy đủ ở REST API.</p>
+</li>
+<li>
+<p><strong>Coi API Key là bảo mật.</strong> Scenario "API bị truy cập trái phép dù đã bật API Key" — vì API Key bị lộ/dùng chung và không có Authorizer. Đáp án đúng luôn bổ sung cơ chế ủy quyền thật.</p>
+</li>
+<li>
+<p><strong>Lỗi 502 mà đi sửa Throttling.</strong> 502 trong cặp API Gateway + Lambda Proxy gần như luôn do Lambda trả sai format (body không phải string, thiếu statusCode, ném exception không bắt). 429 mới là bài toán throttling/quota.</p>
+</li>
+<li>
+<p><strong>Quên deploy sau khi sửa API (REST).</strong> Thay đổi Method/Integration/Authorizer chỉ là bản nháp cho tới khi tạo Deployment mới vào Stage. Đề hay cài chi tiết này trong scenario "đã cấu hình đúng nhưng client vẫn nhận hành vi cũ".</p>
+</li>
+<li>
+<p><strong>Dùng Lambda Authorizer cho mọi request mà quên cache.</strong> Lambda Authorizer có kết quả được cache theo token (TTL cấu hình được) để tránh gọi Lambda xác thực cho từng request — chi tiết giúp giảm chi phí và độ trễ, hay xuất hiện trong đáp án tối ưu.</p>
+</li>
+<li>
+<p><strong>WebSocket bị nhầm với HTTP thường.</strong> Yêu cầu chat realtime, thông báo đẩy hai chiều liên tục mà chọn REST/HTTP API polling là sai cả về kiến trúc lẫn chi phí — phải là WebSocket API.</p>
+</li>
+<li>
+<p><strong>Caching cho dữ liệu nhạy cảm theo user.</strong> API Cache dùng chung theo cache key; nếu cấu hình sai, response của user này có thể trả cho user khác. Scenario dữ liệu cá nhân/thay đổi liên tục → tắt cache hoặc thiết kế cache key cẩn thận, và cân nhắc TTL ngắn.</p>
+</li>
+</ol>
+<h2>Tóm tắt 5 dòng</h2>
+<ol>
+<li>API Gateway là front door có quản lý cho backend: REST API đầy đủ tính năng nhất (caching, usage plans, API keys, request validation), HTTP API rẻ và nhanh hơn cho Lambda/JWT, WebSocket API cho giao tiếp hai chiều realtime.</li>
+<li>Lambda Proxy Integration chuyển toàn bộ request cho Lambda quyết định response, tạo thành cặp serverless kinh điển API Gateway + Lambda (+ DynamoDB).</li>
+<li>Ủy quyền gồm IAM cho nội bộ AWS, Cognito User Pools cho end user, Lambda Authorizer cho logic xác thực tùy biến/bên ngoài; API Key chỉ định danh và áp quota chứ không phải bảo mật.</li>
+<li>Throttling ở mức account và stage cùng Usage Plans bảo vệ backend và chia hạn mức theo khách hàng; API Caching (TTL mặc định 300s) giảm tải và độ trễ cho backend.</li>
+<li>Deployment là bản chụp cấu hình, Stage là môi trường (dev/prod) với Stage Variables riêng; lỗi 429 là vượt throttling/quota, 502 thường do Lambda Proxy trả sai định dạng response.</li>
+</ol></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-14.html">← Bài 14 — SQS, SNS & EventBridge: Decoupling và Event-Driven Architecture</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-16.html">Bài 16 — CloudFormation: Infrastructure as Code trên AWS →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-15"; window.QUIZ_DATA = [{"n": 1, "text": "A company plans to sell access to a public API to third-party developers. It must issue keys to identify each developer, enforce different daily quotas and throttling limits per developer plan, and validate incoming requests against a defined schema before they reach the backend. Which type of API in Amazon API Gateway should the solutions architect choose?", "options": {"A": "HTTP API with a JWT authorizer", "B": "WebSocket API with an IAM authorizer", "C": "REST API with usage plans, API keys, and request validation", "D": "HTTP API with a Lambda authorizer"}, "answer": "C", "explanation": "Bộ yêu cầu \"API keys + quotas/throttling theo từng gói khách hàng (usage plans) + request validation theo schema\" là tính năng đặc trưng chỉ có đầy đủ ở REST API. HTTP API không hỗ trợ usage plans và API keys, WebSocket API dùng cho giao tiếp hai chiều chứ không phải quản lý API công khai kiểu này."}, {"n": 2, "text": "A startup is building a simple mobile backend using AWS Lambda and Amazon DynamoDB. Users sign in with a third-party OpenID Connect provider that issues JWT tokens. The company wants the lowest cost and lowest latency, and does not need API keys, usage plans, or API caching. Which API type is the best choice?", "options": {"A": "REST API", "B": "HTTP API", "C": "WebSocket API", "D": "REST API with a private integration"}, "answer": "B", "explanation": "HTTP API được thiết kế cho kịch bản Lambda proxy đơn giản với JWT Authorizer (Cognito/OIDC), chi phí và độ trễ thấp hơn REST API. Vì đề nói rõ không cần API keys, usage plans hay caching nên không có lý do trả thêm tiền cho REST API."}, {"n": 3, "text": "Users of a serverless application receive intermittent 502 Bad Gateway errors from an API Gateway REST API that uses Lambda proxy integration. The Lambda function runs without errors in its own tests, but returns a JSON object directly as its result without statusCode and with a non-string body. What is the MOST likely cause of the 502 errors?", "options": {"A": "The API has exceeded its account-level throttling limit", "B": "The Lambda function's response does not match the proxy integration output format", "C": "The API cache TTL is set too low", "D": "The Cognito user pool authorizer token has expired"}, "answer": "B", "explanation": "Với Lambda Proxy Integration, Lambda bắt buộc trả về đúng định dạng gồm `statusCode`, `headers` và `body` dạng string. Trả sai định dạng, API Gateway không dựng được HTTP response và trả 502 Bad Gateway. Lỗi vượt throttling sẽ là 429, không phải 502."}, {"n": 4, "text": "A product catalog API receives over a million requests per day, but the catalog changes only a few times per day. The backend Lambda function and database are under heavy read load, and most responses are identical. Which API Gateway feature will MOST effectively reduce backend load and response latency?", "options": {"A": "Enable API caching on the stage with an appropriate TTL", "B": "Increase the stage-level throttling limit", "C": "Add a Lambda authorizer to the method", "D": "Deploy the API to an additional stage"}, "answer": "A", "explanation": "Dữ liệu ít thay đổi mà bị đọc cực nhiều là ca kinh điển của API Caching: bật cache ở Stage với TTL phù hợp (mặc định 300 giây), phần lớn request được trả ngay từ cache, Lambda và database gần như không bị chạm vào. Tăng throttling chỉ cho phép thêm tải vào backend, đi ngược yêu cầu giảm tải."}, {"n": 5, "text": "A company uses API Gateway and Lambda for its public API. During a marketing campaign, traffic spikes tenfold and legitimate users start receiving HTTP 429 errors, while the company also wants to protect a fragile legacy backend from being overwhelmed. Which actions should the solutions architect take? (Choose the best single answer.)", "options": {"A": "Disable throttling entirely so no user receives a 429 error", "B": "Review and raise the API throttling limits where appropriate, and keep usage-plan throttling in place to protect the backend", "C": "Replace the REST API with a WebSocket API", "D": "Turn off the Lambda authorizer and remove all API keys"}, "answer": "B", "explanation": "Lỗi 429 nghĩa là đã chạm giới hạn throttling. Xử lý đúng là rà soát và nâng giới hạn ở mức account/stage cho phù hợp tải thật, đồng thời vẫn giữ throttling theo usage plan để bảo vệ backend legacy mong manh. Tắt hẳn throttling (A) sẽ khiến backend bị dội sập, đúng điều công ty muốn tránh."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

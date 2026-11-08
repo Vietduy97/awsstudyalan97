@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cheat Sheet Theo Dịch Vụ — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+<article class="md-body"><p class="crumb"><a href="tong-hop.html">→ Xem thêm: Cheat Sheet Tổng Hợp</a></p><h1>Cheatsheet Theo Dịch Vụ SAA-C03 — Mỗi Dịch Vụ 1 Mục</h1>
+<blockquote>
+<p>Format mỗi mục: <strong>Là gì / Điểm hay bị hỏi / Giới hạn kinh điển / 1 câu ghi nhớ.</strong></p>
+</blockquote>
+<hr />
+<h2>IAM</h2>
+<ul>
+<li><strong>Là gì:</strong> Quản lý identity (user, group, role) và quyền truy cập AWS qua policy JSON.</li>
+<li><strong>Hay bị hỏi:</strong> Role &gt; User cho EC2/application (không hard-code access key); Policy đánh giá: Explicit Deny thắng tất cả; Least privilege; IAM Access Analyzer; MFA.</li>
+<li><strong>Giới hạn / bẫy:</strong> IAM là <strong>global</strong> service (không theo Region). Root user chỉ dùng việc bất khả kháng, khóa + bật MFA ngay.</li>
+<li><strong>Ghi nhớ:</strong> <em>Cấp quyền bằng Role, không nhúng key vào code.</em></li>
+</ul>
+<h2>Organizations</h2>
+<ul>
+<li><strong>Là gì:</strong> Quản lý nhiều tài khoản AWS tập trung: OU, consolidated billing.</li>
+<li><strong>Hay bị hỏi:</strong> <strong>SCP = preventive guardrail</strong> ở tầng account/OU — SCP không cấp quyền, chỉ giới hạn trần quyền. Consolidated billing = volume discount.</li>
+<li><strong>Giới hạn / bẫy:</strong> SCP không áp dụng lên Management Account theo cách chặn như account con; SCP deny thì IAM policy allow đến mấy cũng vô dụng.</li>
+<li><strong>Ghi nhớ:</strong> <em>SCP chặn trần, IAM cấp sàn — muốn làm được việc phải qua cả hai.</em></li>
+</ul>
+<h2>EC2</h2>
+<ul>
+<li><strong>Là gì:</strong> Máy ảo thuê theo giờ/giây, toàn quyền OS.</li>
+<li><strong>Hay bị hỏi:</strong> Pricing: On-Demand (linh hoạt), Reserved / Savings Plans (ổn định, rẻ hơn), Spot (rẻ nhất, bị thu hồi — cho batch/fault-tolerant), Dedicated Host (license/compliance). Placement Group: Cluster (low latency), Spread (chống lỗi phần cứng), Partition (Hadoop...). Hibernate khác Stop.</li>
+<li><strong>Giới hạn / bẫy:</strong> Spot không dùng cho workload không chịu được gián đoạn (database, stateful quan trọng). Security Group gán theo ENI/instance.</li>
+<li><strong>Ghi nhớ:</strong> <em>Ổn định → Reserved/Savings Plans. Gián đoạn được → Spot.</em></li>
+</ul>
+<h2>Lambda</h2>
+<ul>
+<li><strong>Là gì:</strong> Chạy code theo sự kiện, không server, tính tiền theo request + thời gian chạy.</li>
+<li><strong>Hay bị hỏi:</strong> Trigger từ S3, API Gateway, SQS, EventBridge...; IAM Role cho Lambda; biến môi trường + Secrets Manager; concurrency; Lambda + VPC (truy cập RDS được nhưng mất kết nối internet mặc định nếu không có NAT).</li>
+<li><strong>Giới hạn kinh điển:</strong> Timeout tối đa <strong>15 phút</strong>. Việc dài hơn → Step Functions / ECS.</li>
+<li><strong>Ghi nhớ:</strong> <em>Ngắn + sự kiện + không server = Lambda.</em></li>
+</ul>
+<h2>S3</h2>
+<ul>
+<li><strong>Là gì:</strong> Object storage toàn cục theo bucket, scale gần như vô hạn.</li>
+<li><strong>Hay bị hỏi:</strong> Storage classes + Lifecycle; Versioning; MFA Delete; Object Lock (WORM); Replication (CRR/SRR) — <strong>phải bật Versioning</strong>; Pre-signed URL; Encryption: SSE-S3 / SSE-KMS / SSE-C / client-side; Block Public Access; S3 Static Website.</li>
+<li><strong>Giới hạn kinh điển:</strong> Durability <strong>11 số 9</strong>; object tối đa <strong>5 TB</strong>, single PUT <strong>5 GB</strong> → Multipart Upload.</li>
+<li><strong>Ghi nhớ:</strong> <em>Mặc định bucket là private — public là do policy/config sai.</em></li>
+</ul>
+<h2>EBS</h2>
+<ul>
+<li><strong>Là gì:</strong> Block storage (ổ cứng ảo) gắn vào EC2, bền vững độc lập với instance.</li>
+<li><strong>Hay bị hỏi:</strong> Volume types (xem file phân biệt); Snapshot = backup tăng dần, lưu trên S3 (ẩn); Encryption at rest; Multi-Attach chỉ cho họ io1/io2 trong điều kiện riêng.</li>
+<li><strong>Giới hạn / bẫy:</strong> 1 EBS volume thường gắn <strong>1 instance tại 1 AZ</strong> (volume nằm trong 1 AZ). Muốn chia sẻ nhiều instance → EFS.</li>
+<li><strong>Ghi nhớ:</strong> <em>EBS = ổ cứng của 1 EC2, trong 1 AZ.</em></li>
+</ul>
+<h2>EFS</h2>
+<ul>
+<li><strong>Là gì:</strong> NFS file system dùng chung, tự scale, multi-AZ trong 1 Region.</li>
+<li><strong>Hay bị hỏi:</strong> Nhiều EC2 (Linux) mount cùng lúc; Storage class EFS-IA để giảm chi phí file ít dùng; Throughput modes.</li>
+<li><strong>Giới hạn / bẫy:</strong> Chỉ Linux/NFS (Windows → FSx for Windows). Đắt hơn EBS nhưng chia sẻ được.</li>
+<li><strong>Ghi nhớ:</strong> <em>Nhiều server Linux cùng đọc/ghi 1 thư mục = EFS.</em></li>
+</ul>
+<h2>RDS</h2>
+<ul>
+<li><strong>Là gì:</strong> Relational DB có quản trị: MySQL, PostgreSQL, MariaDB, Oracle, SQL Server.</li>
+<li><strong>Hay bị hỏi:</strong> <strong>Multi-AZ = failover/HA</strong> (standby không đọc được); <strong>Read Replica = scale read</strong> (có thể cross-Region, có thể promote); Automated backup vs Manual snapshot; Encryption khi tạo DB (muốn mã hóa DB chưa mã hóa → snapshot → copy encrypted → restore).</li>
+<li><strong>Giới hạn kinh điển:</strong> Automated backup giữ <strong>1–35 ngày</strong>. Muốn giữ lâu hơn → manual snapshot.</li>
+<li><strong>Ghi nhớ:</strong> <em>HA hỏi Multi-AZ, read nhiều hỏi Replica.</em></li>
+</ul>
+<h2>Aurora</h2>
+<ul>
+<li><strong>Là gì:</strong> Relational DB do AWS xây dựng, tương thích MySQL/PostgreSQL, tách compute và storage.</li>
+<li><strong>Hay bị hỏi:</strong> Storage tự scale tới <strong>128 TB</strong>; tối đa <strong>15 Aurora Replicas</strong>; failover nhanh; Aurora Serverless (workload thất thường); Global Database (cross-Region); Backtrack (khái niệm).</li>
+<li><strong>Giới hạn / bẫy:</strong> Chỉ tương thích MySQL/PostgreSQL — cần Oracle/SQL Server thì quay về RDS.</li>
+<li><strong>Ghi nhớ:</strong> <em>RDS "pro": hiệu năng + scale tốt hơn, vẫn là SQL quan hệ.</em></li>
+</ul>
+<h2>DynamoDB</h2>
+<ul>
+<li><strong>Là gì:</strong> NoSQL key-value/document serverless, scale triệu request/s, single-digit millisecond.</li>
+<li><strong>Hay bị hỏi:</strong> Partition Key / Sort Key quyết định hiệu năng; GSI vs LSI; Provisioned vs On-Demand; Streams (trigger Lambda); Global Tables (multi-Region active-active); Point-in-Time Recovery; DAX cache.</li>
+<li><strong>Giới hạn / bẫy:</strong> Không JOIN, không query tùy tiện như SQL — thiết kế bảng theo access pattern. Item size có giới hạn kinh điển 400 KB.</li>
+<li><strong>Ghi nhớ:</strong> <em>Biết trước cách truy vấn thì DynamoDB nhanh vô địch; cần JOIN thì đừng chọn nó.</em></li>
+</ul>
+<h2>ElastiCache</h2>
+<ul>
+<li><strong>Là gì:</strong> In-memory cache managed: Redis hoặc Memcached.</li>
+<li><strong>Hay bị hỏi:</strong> Redis: persistence, replication, failover, pub/sub, sorted set (leaderboard), session. Memcached: đơn giản, multi-thread, không persistence/replication. Pattern: Lazy Loading, Write-Through. Dùng để giảm tải RDS/DynamoDB + lưu session (stateless web tier).</li>
+<li><strong>Giới hạn / bẫy:</strong> Cache không phải database chính — mất cache không được mất dữ liệu gốc (trừ use case session chấp nhận được).</li>
+<li><strong>Ghi nhớ:</strong> <em>Đọc lặp lại nhiều + cần sub-millisecond = cache trước database.</em></li>
+</ul>
+<h2>VPC</h2>
+<ul>
+<li><strong>Là gì:</strong> Mạng riêng ảo: subnet public/private, route table, IGW, NAT, SG, NACL.</li>
+<li><strong>Hay bị hỏi:</strong> Public subnet = có route ra IGW; Private subnet ra internet qua <strong>NAT Gateway</strong> (ở public subnet); Bastion/Jump host; VPC Peering (không transitive); Transit Gateway (hub-and-spoke); VPC Endpoints; VPC Flow Logs (bắt traffic metadata → CloudWatch/S3).</li>
+<li><strong>Giới hạn / bẫy:</strong> Peering không bắc cầu: A–B, B–C không suy ra A–C. NAT Gateway là managed + theo AZ, muốn HA thì mỗi AZ 1 cái.</li>
+<li><strong>Ghi nhớ:</strong> <em>Public ra thẳng IGW, private đi nhờ NAT.</em></li>
+</ul>
+<h2>Route 53</h2>
+<ul>
+<li><strong>Là gì:</strong> DNS có quản trị + đăng ký domain + health check.</li>
+<li><strong>Hay bị hỏi:</strong> Routing policies: Simple, Weighted, Latency, Failover, Geolocation, Geoproximity, Multi-value. Alias record trỏ AWS resource (S3, CloudFront, ALB) — ưu tiên hơn CNAME ở zone apex. Health check → failover.</li>
+<li><strong>Giới hạn / bẫy:</strong> DNS có TTL/cache — đổi record không có hiệu lực tức thì toàn cầu.</li>
+<li><strong>Ghi nhớ:</strong> <em>Câu hỏi nhắc DNS / failover theo Region / chia traffic theo % → Route 53.</em></li>
+</ul>
+<h2>CloudFront</h2>
+<ul>
+<li><strong>Là gì:</strong> CDN — phân phối nội dung từ edge location, cache + tăng tốc + HTTPS.</li>
+<li><strong>Hay bị hỏi:</strong> Origin: S3, ALB, EC2, HTTP server bất kỳ. OAC/OAI để S3 chỉ cho CloudFront đọc (bucket vẫn private). Signed URL/Cookie cho nội dung trả phí. Invalidation khi cần xóa cache gấp. Geo restriction.</li>
+<li><strong>Giới hạn / bẫy:</strong> Cache có TTL — nội dung mới không hiện ngay nếu chưa hết TTL/invalidate.</li>
+<li><strong>Ghi nhớ:</strong> <em>Người dùng toàn cầu + nội dung tĩnh/chậm thay đổi = CloudFront trước origin.</em></li>
+</ul>
+<h2>ELB (ALB / NLB / GWLB)</h2>
+<ul>
+<li><strong>Là gì:</strong> Load balancer có quản trị, phân phối traffic vào nhiều target/AZ.</li>
+<li><strong>Hay bị hỏi:</strong> <strong>ALB = Layer 7 HTTP/HTTPS</strong>, routing theo path/host/header, target: EC2/container/IP/Lambda. <strong>NLB = Layer 4 TCP/UDP</strong>, hiệu năng cực cao, static IP/EIP. <strong>GWLB = Layer 3</strong>, đưa traffic qua firewall/appliance bên thứ ba. CLB là đời cũ — chỉ chọn khi đề nhắc tính năng legacy.</li>
+<li><strong>Giới hạn / bẫy:</strong> Cần IP tĩnh cho load balancer → NLB (ALB IP thay đổi, dùng DNS name). Cần đọc path URL → bắt buộc ALB.</li>
+<li><strong>Ghi nhớ:</strong> <em>Đọc được HTTP thì ALB, chỉ chuyển gói cực nhanh thì NLB, chèn firewall thì GWLB.</em></li>
+</ul>
+<h2>Auto Scaling (ASG)</h2>
+<ul>
+<li><strong>Là gì:</strong> Tự thêm/bớt EC2 (hoặc tài nguyên) theo chính sách để giữ đúng số lượng mong muốn.</li>
+<li><strong>Hay bị hỏi:</strong> Min / Desired / Max; Scaling policies: Target Tracking (dễ nhất, hay đúng), Step, Simple, Scheduled; Launch Template; kết hợp ALB health check để thay instance hỏng; nhiều AZ.</li>
+<li><strong>Giới hạn / bẫy:</strong> ASG bản thân không cân bằng tải — phải có ELB. Scale-out không cứu được nghẽn ở database.</li>
+<li><strong>Ghi nhớ:</strong> <em>ASG giữ đàn khỏe và đúng cỡ, ELB chia việc cho đàn.</em></li>
+</ul>
+<h2>SQS</h2>
+<ul>
+<li><strong>Là gì:</strong> Hàng đợi message (queue) — decouple producer và consumer.</li>
+<li><strong>Hay bị hỏi:</strong> Standard vs FIFO; Visibility Timeout; DLQ; Long Polling (giảm chi phí + giảm empty receive); consumer scale bằng Lambda/ASG; message retention.</li>
+<li><strong>Giới hạn kinh điển:</strong> Retention tối đa <strong>14 ngày</strong>; visibility tối đa <strong>12 giờ</strong>; FIFO <strong>300 TPS / 3.000 TPS khi batch</strong>.</li>
+<li><strong>Ghi nhớ:</strong> <em>Cần buffer / chống quá tải / tách rời hệ thống = SQS.</em></li>
+</ul>
+<h2>SNS</h2>
+<ul>
+<li><strong>Là gì:</strong> Pub/Sub notification: 1 message → nhiều subscriber (email, SMS, HTTP, Lambda, SQS...).</li>
+<li><strong>Hay bị hỏi:</strong> Topic + Subscription; Fanout SNS → SQS; FIFO topic đi với FIFO queue; lọc message bằng filter policy.</li>
+<li><strong>Giới hạn / bẫy:</strong> SNS không lưu message để consumer "rảnh thì lấy" như queue — offline là nguy cơ mất tin, nên fanout bền vững phải qua SQS.</li>
+<li><strong>Ghi nhớ:</strong> <em>SNS bắn tin đi khắp nơi, SQS giữ tin chờ xử lý.</em></li>
+</ul>
+<h2>EventBridge</h2>
+<ul>
+<li><strong>Là gì:</strong> Event bus serverless: sự kiện từ AWS, SaaS và app tự định nghĩa → route tới target theo rule.</li>
+<li><strong>Hay bị hỏi:</strong> Schedule bằng cron/rate (thay CloudWatch Events); Schema Registry; Archive &amp; replay event; tích hợp nhiều dịch vụ hơn SNS kiểu cũ cho bài toán event-driven.</li>
+<li><strong>Giới hạn / bẫy:</strong> Cần thứ tự nghiêm ngặt + exactly-once kiểu queue → vẫn là SQS FIFO, không phải EventBridge.</li>
+<li><strong>Ghi nhớ:</strong> <em>"Khi sự kiện X xảy ra thì gọi Y, theo lịch cũng được" = EventBridge.</em></li>
+</ul>
+<h2>API Gateway</h2>
+<ul>
+<li><strong>Là gì:</strong> Cửa ngõ API: tạo, bảo mật, throttle, cache REST/HTTP/WebSocket API trước Lambda/backend.</li>
+<li><strong>Hay bị hỏi:</strong> Integration với Lambda; API Key + Usage Plan (throttling/quota cho khách hàng); Authorizer: Cognito / Lambda authorizer / IAM; Private API + VPC endpoint + resource policy; Caching giảm tải backend.</li>
+<li><strong>Giới hạn kinh điển:</strong> Timeout tích hợp REST API hay bị hỏi ở mức ~<strong>29 giây</strong> — tác vụ dài thì thiết kế async.</li>
+<li><strong>Ghi nhớ:</strong> <em>Quản lý ai được gọi API, gọi bao nhiêu, gọi vào đâu = API Gateway.</em></li>
+</ul>
+<h2>CloudFormation</h2>
+<ul>
+<li><strong>Là gì:</strong> Infrastructure as Code của AWS: khai báo template (YAML/JSON) → Stack.</li>
+<li><strong>Hay bị hỏi:</strong> Stack, Change Set (xem trước thay đổi), Drift Detection, Stack Policy, Rollback khi lỗi, Nested Stack, Export/Import cross-stack.</li>
+<li><strong>Giới hạn / bẫy:</strong> Xóa stack = xóa tài nguyên do stack tạo (trừ khi có DeletionPolicy Retain — hay dùng cho database/S3 quan trọng).</li>
+<li><strong>Ghi nhớ:</strong> <em>Dựng/hủy cả hệ thống lặp lại được, có kiểm soát = CloudFormation.</em></li>
+</ul>
+<h2>ECS / EKS / Fargate</h2>
+<ul>
+<li><strong>Là gì:</strong> Chạy container. ECS = orchestrator của AWS. EKS = Kubernetes managed. Fargate = launch type serverless cho cả ECS/EKS.</li>
+<li><strong>Hay bị hỏi:</strong> ECS EC2 launch type (tự quản instance, rẻ/chủ động hơn khi workload ổn định, cần GPU/đặc thù) vs Fargate (không quản server, trả theo task). Task Definition, Service, Cluster. EKS khi đội chuẩn K8s / đa đám mây.</li>
+<li><strong>Giới hạn / bẫy:</strong> Fargate không cho vào instance "chọc ngoáy" — cần kiểm soát OS/kernel → EC2 launch type hoặc EC2 thuần.</li>
+<li><strong>Ghi nhớ:</strong> <em>Container không server = Fargate. Kubernetes = EKS. Còn lại mặc định nghĩ ECS.</em></li>
+</ul>
+<h2>KMS</h2>
+<ul>
+<li><strong>Là gì:</strong> Quản lý khóa mã hóa (keys) tập trung, tích hợp hầu hết dịch vụ AWS, audit qua CloudTrail.</li>
+<li><strong>Hay bị hỏi:</strong> Customer Managed Key vs AWS Managed Key; Key Policy + IAM cùng quyết định quyền dùng khóa; Envelope Encryption; Automatic key rotation (cho customer managed key đối xứng); Grants; khóa cross-account.</li>
+<li><strong>Giới hạn / bẫy:</strong> KMS mã hóa <strong>dữ liệu nhỏ / khóa dữ liệu</strong> theo mô hình envelope — không dùng KMS để tự mã hóa trực tiếp file nhiều GB từng cái một trong đáp án thi.</li>
+<li><strong>Ghi nhớ:</strong> <em>"Ai được dùng khóa nào, dùng khi nào, có audit" = KMS.</em></li>
+</ul>
+<h2>CloudWatch</h2>
+<ul>
+<li><strong>Là gì:</strong> Giám sát metrics, logs, alarms, dashboards, events (nay nhiều phần qua EventBridge).</li>
+<li><strong>Hay bị hỏi:</strong> Metric → Alarm → Action (SNS, ASG, EC2 action); Logs + Log Groups + Metric Filter; Container/ Lambda insights (khái niệm); Alarm thiếu dữ liệu xử lý thế nào.</li>
+<li><strong>Giới hạn / bẫy:</strong> CloudWatch <strong>không</strong> trả lời "ai đã gọi API xóa bucket" — đó là CloudTrail.</li>
+<li><strong>Ghi nhớ:</strong> <em>Hệ thống khỏe không, chậm không, tốn tài nguyên không = CloudWatch.</em></li>
+</ul>
+<h2>CloudTrail</h2>
+<ul>
+<li><strong>Là gì:</strong> Ghi lại mọi API call trong tài khoản: ai, làm gì, khi nào, từ IP nào.</li>
+<li><strong>Hay bị hỏi:</strong> Management Events vs Data Events (Data Events tốn thêm và phải bật riêng, vd S3 object-level, Lambda invoke); Trail → S3 + Log File Validation (chống sửa log); Organizations trail cho mọi account; Event History 90 ngày.</li>
+<li><strong>Giới hạn / bẫy:</strong> CloudTrail ghi API — không ghi metric hiệu năng, không thay CloudWatch.</li>
+<li><strong>Ghi nhớ:</strong> <em>Hỏi "who did what" là CloudTrail, khỏi suy nghĩ.</em></li>
+</ul>
+<h2>AWS Config</h2>
+<ul>
+<li><strong>Là gì:</strong> Ghi lại cấu hình resource theo thời gian + đánh giá tuân thủ bằng Config Rules.</li>
+<li><strong>Hay bị hỏi:</strong> "Resource đã từng được cấu hình thế nào?", "S3 bucket nào không mã hóa?", "SG nào mở 0.0.0.0/0?" → Config. Remediation tự động qua SSM Automation. Aggregator multi-account/Region.</li>
+<li><strong>Giới hạn / bẫy:</strong> Config là <strong>detective</strong>, không ngăn chặn từ đầu — ngăn chặn là SCP/IAM.</li>
+<li><strong>Ghi nhớ:</strong> <em>Config = hồ sơ cấu hình + máy chấm điểm compliance.</em></li>
+</ul>
+<h2>WAF / Shield (khái niệm)</h2>
+<ul>
+<li><strong>Là gì:</strong> WAF = tường lửa Layer 7 cho HTTP (lọc SQL injection, XSS, IP, geo, rate). Shield = chống DDoS; Shield Standard mặc định miễn phí, Shield Advanced trả phí + bảo vệ sâu hơn + đội DRT.</li>
+<li><strong>Hay bị hỏi:</strong> WAF gắn vào CloudFront / ALB / API Gateway. DDoS Layer 3/4 → Shield; tấn công ứng dụng Layer 7 → WAF.</li>
+<li><strong>Giới hạn / bẫy:</strong> WAF không thay Security Group: WAF lọc nội dung HTTP, SG lọc IP/port ở tầng mạng.</li>
+<li><strong>Ghi nhớ:</strong> <em>DDoS = Shield, request HTTP độc hại = WAF.</em></li>
+</ul>
+<h2>Step Functions</h2>
+<ul>
+<li><strong>Là gì:</strong> Điều phối workflow dạng state machine trực quan: chuỗi Lambda/dịch vụ, rẽ nhánh, retry, chờ duyệt.</li>
+<li><strong>Hay bị hỏi:</strong> Standard vs Express workflow (Standard: chạy dài, exactly-once, human approval; Express: ngắn, throughput cao — khái niệm); Error handling Retry/Catch tích hợp; thay thế "Lambda gọi Lambda" rối rắm; việc dài hơn Lambda 15 phút nhưng chia được thành bước.</li>
+<li><strong>Giới hạn / bẫy:</strong> Step Functions điều phối, không tự tính toán — tính toán vẫn do Lambda/ECS... làm.</li>
+<li><strong>Ghi nhớ:</strong> <em>Nhiều bước + rẽ nhánh + retry + chờ người = Step Functions.</em></li>
+</ul>
+<h2>Kinesis (khái niệm)</h2>
+<ul>
+<li><strong>Là gì:</strong> Họ thu thập/xử lý dữ liệu streaming real-time.</li>
+<li><strong>Hay bị hỏi:</strong> <strong>Data Streams</strong>: tự xây consumer, real-time thật, lưu stream ngắn hạn để replay. <strong>Data Firehose</strong>: nạp stream vào S3/Redshift/OpenSearch gần real-time, gần như không code, có buffering. <strong>Video Streams</strong>: stream video từ thiết bị.</li>
+<li><strong>Giới hạn / bẫy:</strong> Cần đơn giản "gửi sự kiện A → B" thôi thì SQS/SNS/EventBridge đủ — đừng chọn Kinesis quá tay. Cần phân tích/tiêu thụ stream tốc độ cao, nhiều consumer đọc lại → mới Kinesis Data Streams.</li>
+<li><strong>Ghi nhớ:</strong> <em>Firehose = đổ vào kho. Streams = tự xử lý dòng chảy.</em></li>
+</ul>
+<h2>Athena / Glue (khái niệm)</h2>
+<ul>
+<li><strong>Là gì:</strong> Athena = truy vấn SQL trực tiếp trên S3, serverless, trả theo dữ liệu scan. Glue = ETL serverless + Data Catalog (metadata) + Crawler tự khám phá schema.</li>
+<li><strong>Hay bị hỏi:</strong> Cặp đôi kinh điển: Glue Crawler tạo Catalog → Athena query S3 như bảng. Glue ETL transform/clean data trước khi phân tích. Tối ưu Athena: partition dữ liệu, dùng định dạng cột (Parquet...) để scan ít hơn.</li>
+<li><strong>Giới hạn / bẫy:</strong> Athena là công cụ truy vấn ad-hoc trên data lake — cần data warehouse hiệu năng ổn định, concurrency cao cho BI → Redshift.</li>
+<li><strong>Ghi nhớ:</strong> <em>Data nằm yên trên S3 mà vẫn query SQL được = Athena (+ Glue Catalog).</em></li>
+</ul>
+<hr />
+<h2>Bảng Tóm Tắt 1 Dòng — Tất Cả</h2>
+<table>
+<thead>
+<tr>
+<th>Dịch vụ</th>
+<th>1 dòng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IAM</td>
+<td>Người/role + policy quyền</td>
+</tr>
+<tr>
+<td>Organizations</td>
+<td>Nhiều account + SCP + billing chung</td>
+</tr>
+<tr>
+<td>EC2</td>
+<td>Máy ảo toàn quyền</td>
+</tr>
+<tr>
+<td>Lambda</td>
+<td>Code theo sự kiện, ≤15 phút</td>
+</tr>
+<tr>
+<td>S3</td>
+<td>Object storage, 11 số 9 durability</td>
+</tr>
+<tr>
+<td>EBS</td>
+<td>Ổ block cho 1 EC2, 1 AZ</td>
+</tr>
+<tr>
+<td>EFS</td>
+<td>File chung NFS cho nhiều EC2 Linux</td>
+</tr>
+<tr>
+<td>RDS</td>
+<td>SQL managed truyền thống</td>
+</tr>
+<tr>
+<td>Aurora</td>
+<td>SQL managed hiệu năng cao của AWS</td>
+</tr>
+<tr>
+<td>DynamoDB</td>
+<td>NoSQL key-value serverless, scale cực lớn</td>
+</tr>
+<tr>
+<td>ElastiCache</td>
+<td>Cache in-memory Redis/Memcached</td>
+</tr>
+<tr>
+<td>VPC</td>
+<td>Mạng riêng, subnet, NAT, endpoint</td>
+</tr>
+<tr>
+<td>Route 53</td>
+<td>DNS + routing + health check</td>
+</tr>
+<tr>
+<td>CloudFront</td>
+<td>CDN edge cache</td>
+</tr>
+<tr>
+<td>ELB</td>
+<td>ALB=L7, NLB=L4, GWLB=firewall appliance</td>
+</tr>
+<tr>
+<td>Auto Scaling</td>
+<td>Tự co giãn số lượng tài nguyên</td>
+</tr>
+<tr>
+<td>SQS</td>
+<td>Queue — decouple, buffer</td>
+</tr>
+<tr>
+<td>SNS</td>
+<td>Pub/sub — fanout thông báo</td>
+</tr>
+<tr>
+<td>EventBridge</td>
+<td>Event bus + lịch cron</td>
+</tr>
+<tr>
+<td>API Gateway</td>
+<td>Cửa ngõ quản lý API</td>
+</tr>
+<tr>
+<td>CloudFormation</td>
+<td>IaC dạng stack/template</td>
+</tr>
+<tr>
+<td>ECS/EKS/Fargate</td>
+<td>Container: AWS-native / K8s / serverless</td>
+</tr>
+<tr>
+<td>KMS</td>
+<td>Quản lý khóa mã hóa</td>
+</tr>
+<tr>
+<td>CloudWatch</td>
+<td>Metrics, logs, alarms</td>
+</tr>
+<tr>
+<td>CloudTrail</td>
+<td>Audit API: ai làm gì</td>
+</tr>
+<tr>
+<td>AWS Config</td>
+<td>Lịch sử cấu hình + compliance rules</td>
+</tr>
+<tr>
+<td>WAF/Shield</td>
+<td>Lọc HTTP độc / chống DDoS</td>
+</tr>
+<tr>
+<td>Step Functions</td>
+<td>Workflow nhiều bước có trạng thái</td>
+</tr>
+<tr>
+<td>Kinesis</td>
+<td>Streaming data real-time</td>
+</tr>
+<tr>
+<td>Athena/Glue</td>
+<td>Query S3 bằng SQL / ETL + catalog</td>
+</tr>
+</tbody>
+</table></article>
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

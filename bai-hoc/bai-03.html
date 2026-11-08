@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 03 — EC2: Máy ảo trên AWS — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 03 — EC2: Máy ảo trên AWS</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Hiểu Amazon EC2 là gì: máy ảo thuê theo giờ/giây trên AWS</li>
+<li>Biết AMI là gì và cách chọn AMI khi tạo instance</li>
+<li>Nhận diện các họ Instance Type ở mức khái niệm: general, compute, memory, storage optimized</li>
+<li>Nắm 5 mô hình giá: On-Demand, Reserved Instances, Savings Plans, Spot, Dedicated Hosts</li>
+<li>Biết Placement Groups: Cluster, Spread, Partition</li>
+<li>Hiểu Key Pair, Security Group ở mức giới thiệu, User Data và Instance Metadata</li>
+<li>Phân biệt EBS-backed và Instance Store ở mức giới thiệu</li>
+<li>Phân biệt các trạng thái: stop, terminate, hibernate</li>
+</ul>
+<h2>Lý thuyết chính</h2>
+<h3>1. EC2 là gì?</h3>
+<p><strong>Amazon Elastic Compute Cloud (EC2)</strong> là dịch vụ cho thuê máy ảo (Virtual Machine) trên AWS — dịch vụ IaaS kinh điển nhất. Bạn chọn hệ điều hành, CPU, RAM, ổ đĩa, bấm Launch và vài phút sau có một server để SSH/RDP vào, giống hệt một máy tính thật nhưng nằm trong data center của AWS.</p>
+<p>EC2 là nền móng của SAA-C03: rất nhiều scenario bắt đầu bằng "một ứng dụng chạy trên EC2..." rồi hỏi cách làm nó highly available, scalable hoặc rẻ hơn.</p>
+<p>Khi tạo một EC2 instance, bạn phải quyết định những thứ sau:</p>
+<h3>2. AMI — Amazon Machine Image</h3>
+<p><strong>AMI</strong> là bản mẫu (template) để tạo instance, chứa: hệ điều hành (Amazon Linux 2023, Ubuntu, Windows...), phần mềm cài sẵn, cấu hình. Chọn AMI là chọn "khởi đầu" của máy ảo.</p>
+<p>Có AMI do AWS cung cấp, do cộng đồng (Community AMI), do Marketplace bán, và AMI bạn tự tạo từ instance của mình (để clone ra nhiều máy giống hệt). Đề thi hay cho tình huống "cần nhiều instance cấu hình giống nhau" — đáp án là tạo <strong>custom AMI</strong> từ instance mẫu rồi launch hàng loạt từ AMI đó.</p>
+<h3>3. Instance Types — các họ máy</h3>
+<p>Instance Type có dạng <code>họ.size</code>, ví dụ <code>t3.micro</code>, <code>m5.large</code>, <code>c6g.xlarge</code>. Số/x2large/xlarge càng lớn thì CPU/RAM càng nhiều và càng đắt. Chỉ cần nhớ <strong>ý nghĩa của họ</strong> ở mức khái niệm:</p>
+<ul>
+<li><strong>General Purpose (họ M, T):</strong> Cân bằng CPU/RAM, dùng cho web server, app server thông thường. Họ <strong>T</strong> là burstable — rẻ, tích lũy CPU credits, hợp workload lúc ít lúc nhiều. <code>t2.micro / t3.micro</code> là instance quen thuộc nhất của người học.</li>
+<li><strong>Compute Optimized (họ C):</strong> Mạnh về CPU, cho batch processing, tính toán khoa học, game server, encoding video.</li>
+<li><strong>Memory Optimized (họ R, X):</strong> Mạnh về RAM, cho in-memory database, cache, xử lý dữ liệu lớn trong RAM.</li>
+<li><strong>Storage Optimized (họ I, D):</strong> Mạnh về ổ đĩa tốc độ cao/dung lượng lớn tại chỗ, cho database cần IOPS cao, data warehouse.</li>
+<li><strong>Accelerated Computing (họ P, G):</strong> Có GPU, cho machine learning và đồ họa — chỉ cần biết khái niệm ở bậc Associate.</li>
+</ul>
+<p>Keyword đề thi: thấy chữ "memory-intensive" thì nghĩ họ R, thấy "compute-intensive / high CPU" thì nghĩ họ C, thấy "balanced" thì nghĩ họ M/T.</p>
+<h3>4. Pricing Models — 5 cách trả tiền EC2</h3>
+<p>Đây là phần chắc chắn có câu hỏi trong domain Cost-Optimized 20%:</p>
+<ul>
+<li><strong>On-Demand:</strong> Trả theo giờ/giây, không cam kết, linh hoạt nhất, đắt nhất trong các lựa chọn dài hạn. Hợp cho workload ngắn hạn, không đoán trước, mới thử nghiệm. Đặc điểm: không trả trước, tắt là hết tiền compute.</li>
+<li><strong>Reserved Instances (RI):</strong> Cam kết dùng <strong>1 năm hoặc 3 năm</strong> với một Instance Type/Region cụ thể (hoặc linh hoạt hơn tùy loại) để được giảm giá lớn so với On-Demand. Hợp cho workload ổn định, chạy 24/7 như database server. Có Standard RI (giảm sâu hơn, ít linh hoạt) và Convertible RI (đổi được instance family, giảm ít hơn).</li>
+<li><strong>Savings Plans:</strong> Cam kết mức chi tiêu theo giờ (ví dụ $10/giờ) trong 1 hoặc 3 năm, AWS tự áp dụng giảm giá linh hoạt qua nhiều instance family và cả Lambda/Fargate (với Compute Savings Plans). Đây là lựa chọn <strong>linh hoạt hơn RI</strong> và là hướng AWS khuyến nghị hiện nay. Phân biệt cốt lõi hay thi: RI khóa vào instance type/Region cụ thể hơn, Savings Plans khóa vào <strong>mức tiền cam kết</strong> và linh hoạt hơn.</li>
+<li><strong>Spot Instances:</strong> Đấu giá năng lực EC2 đang dư thừa của AWS với giá giảm rất sâu so với On-Demand, đổi lại <strong>AWS có thể thu hồi instance với cảnh báo 2 phút</strong> khi họ cần lại năng lực. Chỉ hợp cho workload chịu được gián đoạn: batch job, xử lý ảnh/video, CI/CD, big data. <strong>Không bao giờ dùng Spot cho database hay hệ thống không được phép sập giữa chừng.</strong></li>
+<li><strong>Dedicated Hosts:</strong> Thuê nguyên một máy chủ vật lý, không chia sẻ với khách hàng khác. Đắt nhất, dùng khi cần tuân thủ license phần mềm tính theo physical core/socket, hoặc yêu cầu compliance đặc biệt. Phân biệt với <strong>Dedicated Instances</strong>: Dedicated Instances cũng chạy trên phần cứng tách riêng cho bạn nhưng bạn không kiểm soát/không thấy được host cụ thể như Dedicated Hosts.</li>
+</ul>
+<h3>5. Placement Groups — cách bố trí instance trong AZ</h3>
+<p>Placement Group là cách bạn bảo AWS sắp xếp các instance vật lý gần hay xa nhau trong một AZ:</p>
+<ul>
+<li><strong>Cluster Placement Group:</strong> Đặt các instance <strong>rất gần nhau</strong> trong cùng một AZ để đạt network latency thấp nhất, băng thông cao nhất. Dùng cho HPC (High Performance Computing), ứng dụng cần các node nói chuyện với nhau cực nhanh. Đánh đổi: cùng AZ nên rủi ro cùng lúc cao hơn.</li>
+<li><strong>Spread Placement Group:</strong> Đặt các instance <strong>trên các phần cứng khác nhau, tách xa nhau</strong> để giảm rủi ro sập cùng lúc. Tối đa 7 instance cho mỗi AZ trong một Spread Group. Dùng cho ứng dụng quan trọng có ít instance, mỗi instance phải độc lập.</li>
+<li><strong>Partition Placement Group:</strong> Chia instance thành các partition logic, mỗi partition có rack phần cứng riêng, các partition không dùng chung rack. Dùng cho hệ thống phân tán lớn như Hadoop, Cassandra, Kafka — khi một partition lỗi, các partition khác vẫn sống.</li>
+</ul>
+<p>Mẹo nhớ: Cluster = gom lại cho nhanh, Spread = rải ra cho an toàn số lượng ít, Partition = chia ô cho hệ thống phân tán lớn.</p>
+<h3>6. Key Pair và Security Group (giới thiệu)</h3>
+<ul>
+<li><strong>Key Pair:</strong> Cặp khóa để đăng nhập instance. AWS giữ public key, bạn tải private key (file <code>.pem</code> cho Linux, dùng cho SSH; Windows dùng nó để giải mã password RDP) <strong>một lần duy nhất</strong> khi tạo. Mất private key là mất cách vào instance theo đường chuẩn. Lưu file <code>.pem</code> như lưu chìa khóa nhà — tuyệt đối không up lên GitHub.</li>
+<li><strong>Security Group:</strong> Firewall ảo ở tầng instance, quản lý traffic vào/ra (inbound/outbound). Security Group là <strong>stateful</strong>: đã cho traffic vào thì traffic trả lời tự động được cho ra. Mặc định inbound bị chặn hết, outbound cho phép hết. Chi tiết Security Group vs Network ACL sẽ học sâu ở bài Network — ở bài này chỉ cần nhớ Security Group là "anh bảo vệ cổng" của từng instance.</li>
+</ul>
+<h3>7. User Data và Instance Metadata</h3>
+<ul>
+<li><strong>User Data:</strong> Đoạn script bạn đưa vào khi launch, instance sẽ <strong>tự chạy một lần lúc khởi động lần đầu</strong>. Dùng để tự cài web server, cập nhật OS, tải code — nền tảng của tự động hóa. Ví dụ kinh điển trong đề thi: User Data chứa script cài Apache và tạo trang web mẫu.</li>
+<li><strong>Instance Metadata:</strong> Thông tin về chính instance đó, truy cập từ bên trong instance qua địa chỉ đặc biệt <code>169.254.169.254</code>. Ứng dụng chạy trong instance dùng nó để biết public IP, IAM Role tạm thời của mình, AZ đang ở... Đề thi hay hỏi cách instance lấy credentials của Role — chính là qua Instance Metadata (IMDS).</li>
+</ul>
+<h3>8. EBS-backed vs Instance Store (giới thiệu)</h3>
+<ul>
+<li><strong>EBS-backed Instance:</strong> Ổ đĩa gốc là <strong>Amazon EBS</strong> — ổ đĩa mạng bền vững, tách rời khỏi instance. Stop instance thì dữ liệu vẫn còn. Đây là lựa chọn mặc định và phổ biến nhất.</li>
+<li><strong>Instance Store:</strong> Ổ đĩa vật lý gắn chết vào host chứa instance — tốc độ rất cao nhưng là <strong>ephemeral storage</strong>: instance stop/terminate hoặc host lỗi là <strong>mất sạch dữ liệu</strong>. Chỉ dùng làm cache, buffer, dữ liệu tạm tái tạo lại được.</li>
+</ul>
+<p>Chi tiết về EBS volume types, snapshot, encryption sẽ học kỹ ở bài Storage (Bài 06). Ở bài này chỉ cần ghim: <strong>EBS = bền, Instance Store = tạm và mất khi stop.</strong></p>
+<h3>9. Các trạng thái của instance</h3>
+<ul>
+<li><strong>Stop:</strong> Tắt máy. Hết tiền compute, <strong>EBS vẫn tính tiền</strong>, dữ liệu EBS còn nguyên, dữ liệu Instance Store mất. Instance có thể start lại, thường sẽ sang host vật lý khác và đổi public IP (trừ khi có Elastic IP).</li>
+<li><strong>Start:</strong> Bật lại instance đã stop.</li>
+<li><strong>Reboot:</strong> Khởi động lại OS, giống bấm nút restart — instance vẫn ở nguyên host, không mất dữ liệu Instance Store.</li>
+<li><strong>Hibernate:</strong> "Ngủ đông" — nội dung RAM được lưu xuống EBS, lần start sau instance khôi phục đúng trạng thái đang chạy dở (các ứng dụng đang mở vẫn nguyên). Cần instance hỗ trợ và EBS root được mã hóa, RAM có giới hạn. Khác với Stop ở chỗ Stop là tắt hẳn, bật lại như mở máy mới.</li>
+<li><strong>Terminate:</strong> Xóa sổ instance. Không khôi phục được. Root EBS mặc định xóa theo, cần kiểm tra các tài nguyên kèm theo như đã học ở Bài 02.</li>
+</ul>
+<h2>Ví dụ đời thường</h2>
+<p><strong>EC2 giống như thuê xe máy / ô tô ở Việt Nam theo nhu cầu.</strong></p>
+<ul>
+<li><strong>On-Demand</strong> là thuê xe theo ngày ở tiệm đầu ngõ: cần thì thuê, trả theo ngày, không ràng buộc, giá niêm yết cao nhất nhưng tự do nhất.</li>
+<li><strong>Reserved Instance</strong> là ký hợp đồng thuê xe dài hạn 1–3 năm cho nhân viên giao hàng chạy cố định mỗi ngày: giá rẻ hơn hẳn vì bạn cam kết thuê lâu — nhưng cam kết rồi thì xe đó phải dùng, không dùng vẫn trả tiền.</li>
+<li><strong>Savings Plans</strong> giống như cam kết với hãng "tháng nào tôi cũng thuê ít nhất 10 triệu tiền xe" — đổi lại hãng giảm giá cho mọi loại xe bạn thuê, linh hoạt hơn việc khóa chết vào một mẫu xe như RI.</li>
+<li><strong>Spot Instance</strong> là xe đang trống của hãng được cho thuê giá rẻ bất ngờ, với điều kiện: khi có khách VIP cần xe, hãng lấy lại xe sau khi báo trước 2 phút. Chỉ hợp cho chuyến đi mà bị hủy giữa chừng cũng không sao — như chở vật liệu xây dựng chia nhiều chuyến nhỏ, tuyệt đối không dùng để chở bệnh nhân đi cấp cứu (database).</li>
+<li><strong>AMI</strong> là bản thiết kế quán phở mẫu: nấu chuẩn một quán rồi photocopy bản thiết kế để mở 20 quán giống hệt nhau khắp thành phố.</li>
+<li><strong>User Data</strong> là tờ giấy dặn nhân viên ca sáng: "Vừa mở cửa là bật bếp, treo biển, bật nhạc" — instance vừa khởi động là tự làm theo, không cần ai đứng nhắc.</li>
+</ul>
+<h2>Phân biệt dễ nhầm</h2>
+<table>
+<thead>
+<tr>
+<th>Cặp dễ nhầm</th>
+<th>Cách phân biệt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reserved Instances vs Savings Plans</td>
+<td>RI cam kết theo instance type/Region cụ thể. Savings Plans cam kết theo số tiền/giờ, linh hoạt nhiều family/dịch vụ hơn</td>
+</tr>
+<tr>
+<td>Spot vs On-Demand</td>
+<td>Spot rẻ sâu nhưng bị thu hồi với cảnh báo 2 phút. On-Demand giá chuẩn nhưng không ai lấy lại máy của bạn</td>
+</tr>
+<tr>
+<td>Dedicated Hosts vs Dedicated Instances</td>
+<td>Dedicated Hosts thuê nguyên server vật lý và thấy/kiểm soát được host — cần cho license theo socket/core. Dedicated Instances tách phần cứng nhưng không kiểm soát host ở mức đó</td>
+</tr>
+<tr>
+<td>Stop vs Hibernate</td>
+<td>Stop tắt hẳn, bật lại như máy mới. Hibernate lưu cả RAM xuống EBS, bật lại tiếp tục đúng trạng thái đang dở</td>
+</tr>
+<tr>
+<td>EBS-backed vs Instance Store</td>
+<td>EBS bền, sống sót qua stop. Instance Store nhanh nhưng ephemeral — stop/terminate là mất dữ liệu</td>
+</tr>
+<tr>
+<td>Cluster vs Spread Placement Group</td>
+<td>Cluster gom instance gần nhau để latency thấp nhất. Spread rải instance ra phần cứng khác nhau để giảm rủi ro</td>
+</tr>
+<tr>
+<td>Security Group vs Key Pair</td>
+<td>Key Pair để đăng nhập (bạn là ai). Security Group là firewall chặn/cho traffic (ai được nói chuyện với instance)</td>
+</tr>
+</tbody>
+</table>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li>Đề cho workload "batch processing có thể chạy lại khi bị gián đoạn, cần rẻ nhất": đáp án là <strong>Spot Instances</strong>. Đề cho workload "database production không được sập": Spot là đáp án <strong>sai</strong>.</li>
+<li>Đề hỏi giảm giá cho workload ổn định chạy 24/7 trong 3 năm: nghĩ tới <strong>Reserved Instances hoặc Savings Plans</strong>. Nếu đề nhấn mạnh "linh hoạt đổi instance family" thì Savings Plans thắng.</li>
+<li>Đề hỏi license phần mềm tính theo physical cores và cần biết chính xác host: đáp án là <strong>Dedicated Hosts</strong>, không phải Dedicated Instances.</li>
+<li>Đề hỏi ứng dụng cần các node giao tiếp với latency thấp nhất có thể: <strong>Cluster Placement Group</strong>. Ứng dụng quan trọng, ít instance, cần tách biệt lỗi: <strong>Spread</strong>. Hadoop/Kafka quy mô lớn: <strong>Partition</strong>.</li>
+<li>User Data chỉ chạy khi <strong>launch lần đầu</strong> (mặc định). Đừng chọn đáp án "dùng User Data để sửa cấu hình mỗi lần reboot".</li>
+<li>Mất private key <code>.pem</code> — không có chuyện AWS gửi lại file đó cho bạn. Đây là lỗi người dùng, không phải lỗi AWS.</li>
+<li>Hibernate không phải instance nào cũng dùng được và có yêu cầu về EBS root mã hóa — đừng mặc định mọi instance đều hibernate được.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<p>EC2 là máy ảo thuê trên AWS, tạo từ AMI (bản mẫu OS + phần mềm) với Instance Type thuộc các họ general/compute/memory/storage tùy đặc tính workload.
+Về giá: On-Demand linh hoạt không cam kết, Reserved Instances và Savings Plans giảm giá khi cam kết 1–3 năm, Spot rẻ nhất nhưng bị thu hồi sau cảnh báo 2 phút, Dedicated Hosts thuê nguyên máy vật lý cho nhu cầu license/compliance.
+Placement Group gồm Cluster (gom gần, latency thấp), Spread (rải ra, tối đa 7 instance/AZ) và Partition (chia ô cho hệ thống phân tán lớn như Hadoop/Kafka).
+Key Pair để đăng nhập, Security Group là firewall stateful của instance, User Data là script tự chạy lúc launch, Instance Metadata ở 169.254.169.254 cho instance tự biết thông tin về chính nó.
+EBS-backed thì dữ liệu bền qua stop, Instance Store là ephemeral sẽ mất dữ liệu khi stop/terminate, và Hibernate khác Stop ở chỗ nó lưu cả trạng thái RAM để khôi phục nguyên vẹn.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-02.html">← Bài 02 — Billing và Free Tier an toàn</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-04.html">Bài 04 — Lambda và Serverless →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-03"; window.QUIZ_DATA = [{"n": 1, "text": "A company runs a batch image-processing job that can be interrupted and restarted without data loss. The company wants the LOWEST possible cost for the EC2 compute capacity. Which purchasing option should they choose?", "options": {"A": "On-Demand Instances", "B": "Reserved Instances", "C": "Spot Instances", "D": "Dedicated Hosts"}, "answer": "C", "explanation": "Spot Instances là đáp án kinh điển cho workload chịu được gián đoạn và cần rẻ nhất. Đề đã cố tình cho dữ kiện \"can be interrupted and restarted\" — đó là dấu hiệu nhận diện Spot. On-Demand đắt hơn, RI là cam kết dài hạn không liên quan, Dedicated Hosts đắt nhất."}, {"n": 2, "text": "A company needs to deploy a small number of critical instances so that no two instances share the same underlying hardware, reducing the risk of simultaneous failure. Which placement group type should they use?", "options": {"A": "Cluster placement group", "B": "Spread placement group", "C": "Partition placement group", "D": "Auto Scaling group"}, "answer": "B", "explanation": "Spread Placement Group rải từng instance lên phần cứng riêng biệt khác nhau, tối đa 7 instance mỗi AZ trong một group — đúng với yêu cầu \"số lượng ít, quan trọng, không chia sẻ phần cứng\". Cluster làm ngược lại (gom gần nhau), Partition dành cho hệ thống phân tán lớn."}, {"n": 3, "text": "An application requires high CPU performance for scientific simulations. Which EC2 instance family is MOST appropriate?", "options": {"A": "Memory optimized (R family)", "B": "Storage optimized (I family)", "C": "Compute optimized (C family)", "D": "General purpose burstable (T family)"}, "answer": "C", "explanation": "\"High CPU performance\" là keyword của Compute Optimized — họ C. Họ R là nhiều RAM, họ I là storage, họ T là burstable giá rẻ cho workload thông thường."}, {"n": 4, "text": "What happens to data stored on an Instance Store volume when an EC2 instance is stopped?", "options": {"A": "The data is automatically backed up to Amazon S3", "B": "The data is preserved on the EBS root volume", "C": "The data is lost because Instance Store is ephemeral storage", "D": "The data is encrypted and retained for 30 days"}, "answer": "C", "explanation": "Instance Store là ephemeral storage: dữ liệu mất khi instance stop, terminate hoặc host gặp sự cố. Muốn dữ liệu bền phải dùng EBS. Đây là câu phân biệt EBS vs Instance Store kinh điển nhất."}, {"n": 5, "text": "A company has a stable workload that runs 24/7 and wants a pricing commitment based on a consistent hourly spend that can be applied flexibly across instance families. Which option is MOST suitable?", "options": {"A": "Spot Instances", "B": "Compute Savings Plans", "C": "On-Demand Instances", "D": "Dedicated Hosts"}, "answer": "B", "explanation": "Savings Plans cam kết theo mức chi tiêu theo giờ và áp dụng linh hoạt qua nhiều instance family. RI cũng giảm giá nhưng khóa chặt hơn vào instance type/Region. Đề nhấn mạnh chữ \"flexibly across instance families\" là cố ý chỉ về Savings Plans."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

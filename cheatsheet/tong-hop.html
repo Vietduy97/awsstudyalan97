@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cheat Sheet Tổng Hợp — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+<article class="md-body"><p class="crumb"><a href="theo-dich-vu.html">→ Xem thêm: Cheat Sheet Theo Dịch Vụ</a></p><h1>Cheatsheet Tổng Hợp SAA-C03 — Ôn Thi Nước Rút</h1>
+<blockquote>
+<p>Cách dùng: học thuộc bảng keyword trước. Đề thi SAA-C03 thường không hỏi thẳng tên dịch vụ — đề cho <strong>tình huống + keyword</strong>, đáp án nằm ở keyword đó.</p>
+</blockquote>
+<hr />
+<h2>1. Bảng Keyword Trong Đề → Dịch Vụ / Đáp án</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Keyword / tình huống trong đề</th>
+<th>Dịch vụ / Đáp án</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>sudden spike in traffic, unpredictable workload</td>
+<td>DynamoDB On-Demand / Lambda</td>
+</tr>
+<tr>
+<td>2</td>
+<td>predictable traffic, steady workload (để rẻ hơn)</td>
+<td>DynamoDB Provisioned + Auto Scaling</td>
+</tr>
+<tr>
+<td>3</td>
+<td>decouple components, loose coupling</td>
+<td>SQS</td>
+</tr>
+<tr>
+<td>4</td>
+<td>fanout (1 tin → nhiều nơi nhận)</td>
+<td>SNS + SQS (SNS publish, nhiều SQS queue subscribe)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>order matters, exactly-once processing</td>
+<td>SQS FIFO</td>
+</tr>
+<tr>
+<td>6</td>
+<td>petabyte data warehouse, OLAP, complex queries</td>
+<td>Redshift</td>
+</tr>
+<tr>
+<td>7</td>
+<td>in-memory cache, sub-millisecond latency</td>
+<td>ElastiCache / DynamoDB DAX</td>
+</tr>
+<tr>
+<td>8</td>
+<td>cache cho DynamoDB, microsecond latency</td>
+<td>DAX</td>
+</tr>
+<tr>
+<td>9</td>
+<td>cache session, leaderboard, pub/sub</td>
+<td>ElastiCache for Redis</td>
+</tr>
+<tr>
+<td>10</td>
+<td>global users, low latency static content</td>
+<td>CloudFront</td>
+</tr>
+<tr>
+<td>11</td>
+<td>2 static IP addresses, TCP/UDP, gaming, IoT</td>
+<td>Global Accelerator</td>
+</tr>
+<tr>
+<td>12</td>
+<td>WORM, compliance, cannot delete / immutable backup</td>
+<td>S3 Object Lock (Governance / Compliance mode)</td>
+</tr>
+<tr>
+<td>13</td>
+<td>rotate secrets automatically</td>
+<td>Secrets Manager</td>
+</tr>
+<tr>
+<td>14</td>
+<td>store configuration / parameter, free tier</td>
+<td>SSM Parameter Store</td>
+</tr>
+<tr>
+<td>15</td>
+<td>audit who did what, API calls history</td>
+<td>CloudTrail</td>
+</tr>
+<tr>
+<td>16</td>
+<td>resource configuration history, compliance rules</td>
+<td>AWS Config</td>
+</tr>
+<tr>
+<td>17</td>
+<td>metrics and alarms, logs, performance monitoring</td>
+<td>CloudWatch</td>
+</tr>
+<tr>
+<td>18</td>
+<td>managed NAT cho private subnet ra internet</td>
+<td>NAT Gateway</td>
+</tr>
+<tr>
+<td>19</td>
+<td>free private access to S3 / DynamoDB from VPC</td>
+<td>Gateway VPC Endpoint</td>
+</tr>
+<tr>
+<td>20</td>
+<td>private access to AWS services (hầu hết dịch vụ còn lại)</td>
+<td>Interface VPC Endpoint (PrivateLink)</td>
+</tr>
+<tr>
+<td>21</td>
+<td>SQL with joins, relational database</td>
+<td>RDS / Aurora</td>
+</tr>
+<tr>
+<td>22</td>
+<td>key-value, millions of requests per second, serverless DB</td>
+<td>DynamoDB</td>
+</tr>
+<tr>
+<td>23</td>
+<td>shared file system for Linux instances, nhiều AZ</td>
+<td>EFS</td>
+</tr>
+<tr>
+<td>24</td>
+<td>block storage for one instance</td>
+<td>EBS</td>
+</tr>
+<tr>
+<td>25</td>
+<td>archive, rarely accessed, cheapest storage</td>
+<td>S3 Glacier Deep Archive</td>
+</tr>
+<tr>
+<td>26</td>
+<td>disaster recovery, RPO/RTO minutes, scaled-down environment running</td>
+<td>Warm Standby</td>
+</tr>
+<tr>
+<td>27</td>
+<td>graph database, relationships, recommendation</td>
+<td>Neptune</td>
+</tr>
+<tr>
+<td>28</td>
+<td>ledger database, immutable verifiable history</td>
+<td>QLDB</td>
+</tr>
+<tr>
+<td>29</td>
+<td>time-series database</td>
+<td>Timestream (khái niệm)</td>
+</tr>
+<tr>
+<td>30</td>
+<td>data lake query with SQL, serverless, pay per query</td>
+<td>Athena (truy vấn S3 bằng SQL)</td>
+</tr>
+<tr>
+<td>31</td>
+<td>ETL, serverless data integration, crawler</td>
+<td>Glue</td>
+</tr>
+<tr>
+<td>32</td>
+<td>streaming data, real-time ingestion</td>
+<td>Kinesis (Data Streams / Firehose / Video Streams)</td>
+</tr>
+<tr>
+<td>33</td>
+<td>workflow orchestration visual, state machine, human approval</td>
+<td>Step Functions</td>
+</tr>
+<tr>
+<td>34</td>
+<td>container without managing servers</td>
+<td>Fargate (ECS/EKS on Fargate)</td>
+</tr>
+<tr>
+<td>35</td>
+<td>send email</td>
+<td>SES</td>
+</tr>
+<tr>
+<td>36</td>
+<td>transcoding video</td>
+<td>MediaConvert (Elastic Transcoder là dịch vụ cũ — khái niệm)</td>
+</tr>
+<tr>
+<td>37</td>
+<td>single sign-on workforce, nhiều tài khoản AWS</td>
+<td>IAM Identity Center</td>
+</tr>
+<tr>
+<td>38</td>
+<td>preventive guardrails multi-account</td>
+<td>SCP (Service Control Policies)</td>
+</tr>
+<tr>
+<td>39</td>
+<td>detective guardrails</td>
+<td>AWS Config rules / Security Hub / GuardDuty (tùy ngữ cảnh)</td>
+</tr>
+<tr>
+<td>40</td>
+<td>DDoS protection, Layer 7</td>
+<td>WAF (+ Shield Advanced — khái niệm)</td>
+</tr>
+<tr>
+<td>41</td>
+<td>third-party firewall appliance in VPC, inspect traffic</td>
+<td>Gateway Load Balancer (GWLB)</td>
+</tr>
+<tr>
+<td>42</td>
+<td>hybrid DNS, on-prem ↔ VPC</td>
+<td>Route 53 Resolver</td>
+</tr>
+<tr>
+<td>43</td>
+<td>shared VPC / resources across accounts</td>
+<td>AWS RAM (Resource Access Manager)</td>
+</tr>
+<tr>
+<td>44</td>
+<td>private API, chỉ truy cập từ VPC</td>
+<td>API Gateway private endpoint + resource policy</td>
+</tr>
+<tr>
+<td>45</td>
+<td>REST API, caching, throttling, API key</td>
+<td>API Gateway</td>
+</tr>
+<tr>
+<td>46</td>
+<td>event-driven, schedule (cron), event bus, SaaS events</td>
+<td>EventBridge</td>
+</tr>
+<tr>
+<td>47</td>
+<td>notification: email / SMS / push / HTTP</td>
+<td>SNS</td>
+</tr>
+<tr>
+<td>48</td>
+<td>migrate database, minimal downtime</td>
+<td>DMS (+ SCT để convert schema)</td>
+</tr>
+<tr>
+<td>49</td>
+<td>migrate servers on-prem → AWS</td>
+<td>AWS Application Migration Service (MGN)</td>
+</tr>
+<tr>
+<td>50</td>
+<td>hybrid storage, on-prem truy cập S3, NFS/SMB, backup tape</td>
+<td>Storage Gateway</td>
+</tr>
+<tr>
+<td>51</td>
+<td>transfer data lớn qua mạng chậm / offline, petabyte</td>
+<td>Snowball / Snowmobile (họ Snow)</td>
+</tr>
+<tr>
+<td>52</td>
+<td>sync / transfer files giữa S3, EFS, on-prem, tăng tốc</td>
+<td>DataSync / Transfer Family (SFTP/FTP vào S3/EFS)</td>
+</tr>
+<tr>
+<td>53</td>
+<td>centralized backup across AWS services</td>
+<td>AWS Backup</td>
+</tr>
+<tr>
+<td>54</td>
+<td>encrypt data, managed keys, audit key usage</td>
+<td>KMS</td>
+</tr>
+<tr>
+<td>55</td>
+<td>dedicated hardware security module, FIPS, own keys hoàn toàn</td>
+<td>CloudHSM</td>
+</tr>
+<tr>
+<td>56</td>
+<td>threat detection, malicious activity, GuardDuty findings</td>
+<td>GuardDuty</td>
+</tr>
+<tr>
+<td>57</td>
+<td>scan vulnerabilities trên EC2 / container images</td>
+<td>Inspector</td>
+</tr>
+<tr>
+<td>58</td>
+<td>scan S3 tìm PII / sensitive data</td>
+<td>Macie</td>
+</tr>
+<tr>
+<td>59</td>
+<td>tập hợp findings bảo mật về 1 chỗ</td>
+<td>Security Hub</td>
+</tr>
+<tr>
+<td>60</td>
+<td>phân tích IAM policy, external access, unused access</td>
+<td>IAM Access Analyzer</td>
+</tr>
+<tr>
+<td>61</td>
+<td>website static hosting rẻ nhất</td>
+<td>S3 Static Website Hosting (+ CloudFront)</td>
+</tr>
+<tr>
+<td>62</td>
+<td>pre-signed URL</td>
+<td>Chia sẻ S3 object tạm thời, có thời hạn, không cần public</td>
+</tr>
+<tr>
+<td>63</td>
+<td>tăng tốc upload/download S3 đường dài</td>
+<td>S3 Transfer Acceleration / CloudFront</td>
+</tr>
+<tr>
+<td>64</td>
+<td>upload file lớn lên S3 (trên 5 GB single PUT)</td>
+<td>S3 Multipart Upload</td>
+</tr>
+<tr>
+<td>65</td>
+<td>replicate S3 sang Region khác, compliance / latency</td>
+<td>S3 Cross-Region Replication (CRR)</td>
+</tr>
+<tr>
+<td>66</td>
+<td>tự động chuyển S3 object sang lớp rẻ hơn theo tuổi</td>
+<td>S3 Lifecycle Policies</td>
+</tr>
+<tr>
+<td>67</td>
+<td>xóa object sau X ngày tự động</td>
+<td>S3 Lifecycle — Expiration</td>
+</tr>
+<tr>
+<td>68</td>
+<td>scale compute tự động theo traffic</td>
+<td>Auto Scaling Group (ASG)</td>
+</tr>
+<tr>
+<td>69</td>
+<td>distribute traffic HTTP, path/host-based routing, Layer 7</td>
+<td>ALB</td>
+</tr>
+<tr>
+<td>70</td>
+<td>extreme performance, static IP, TCP/UDP, Layer 4</td>
+<td>NLB</td>
+</tr>
+<tr>
+<td>71</td>
+<td>sticky session</td>
+<td>ALB (target group) / CLB cũ</td>
+</tr>
+<tr>
+<td>72</td>
+<td>SSL/TLS termination, quản lý certificate miễn phí</td>
+<td>ACM (AWS Certificate Manager) + ALB/CloudFront</td>
+</tr>
+<tr>
+<td>73</td>
+<td>DNS, failover routing, health check</td>
+<td>Route 53</td>
+</tr>
+<tr>
+<td>74</td>
+<td>users gần nhất về mặt địa lý / latency thấp nhất</td>
+<td>Route 53 Latency-based / Geolocation routing</td>
+</tr>
+<tr>
+<td>75</td>
+<td>blue/green, canary deployment</td>
+<td>Route 53 Weighted / CodeDeploy / ALB weighted target groups</td>
+</tr>
+<tr>
+<td>76</td>
+<td>Infrastructure as Code</td>
+<td>CloudFormation (AWS-native) / CDK / Terraform</td>
+</tr>
+<tr>
+<td>77</td>
+<td>serverless application, Lambda + API GW đóng gói</td>
+<td>SAM</td>
+</tr>
+<tr>
+<td>78</td>
+<td>deploy container, không cần Kubernetes</td>
+<td>ECS</td>
+</tr>
+<tr>
+<td>79</td>
+<td>Kubernetes chuẩn, đội đã biết K8s</td>
+<td>EKS</td>
+</tr>
+<tr>
+<td>80</td>
+<td>message bị xử lý lỗi nhiều lần, poison pill</td>
+<td>SQS Dead Letter Queue (DLQ)</td>
+</tr>
+<tr>
+<td>81</td>
+<td>message tồn đọng, xử lý batch, thứ tự không quan trọng</td>
+<td>SQS Standard</td>
+</tr>
+<tr>
+<td>82</td>
+<td>long polling giảm request rỗng / giảm chi phí SQS</td>
+<td>SQS Long Polling (WaitTimeSeconds &gt; 0)</td>
+</tr>
+<tr>
+<td>83</td>
+<td>database read quá tải, tách read khỏi write</td>
+<td>RDS Read Replica / Aurora Replica</td>
+</tr>
+<tr>
+<td>84</td>
+<td>database failover tự động, high availability</td>
+<td>RDS Multi-AZ / Aurora</td>
+</tr>
+<tr>
+<td>85</td>
+<td>giảm tải database bằng cache read-through / lazy loading</td>
+<td>ElastiCache + pattern lazy loading / write-through</td>
+</tr>
+<tr>
+<td>86</td>
+<td>kết nối on-prem ↔ AWS: nhanh, private, ổn định</td>
+<td>Direct Connect (DX)</td>
+</tr>
+<tr>
+<td>87</td>
+<td>kết nối on-prem ↔ AWS: nhanh gọn qua internet, mã hóa</td>
+<td>Site-to-Site VPN</td>
+</tr>
+<tr>
+<td>88</td>
+<td>DX cần dự phòng rẻ</td>
+<td>VPN làm backup cho Direct Connect</td>
+</tr>
+<tr>
+<td>89</td>
+<td>nhiều VPC kết nối hub-and-spoke, quản lý tập trung</td>
+<td>Transit Gateway</td>
+</tr>
+<tr>
+<td>90</td>
+<td>kết nối 2 VPC với nhau (cùng/khác account, khác Region được)</td>
+<td>VPC Peering (không transitive)</td>
+</tr>
+<tr>
+<td>91</td>
+<td>IPv6 + security (cặp quen thuộc trong đề)</td>
+<td>Security Group hỗ trợ IPv6; Egress-only Internet Gateway cho IPv6</td>
+</tr>
+<tr>
+<td>92</td>
+<td>chỉ cho phép 1 dịch vụ / prefix list qua SG (vd S3, DynamoDB)</td>
+<td>Managed Prefix List trong Security Group rule</td>
+</tr>
+<tr>
+<td>93</td>
+<td>block IP cụ thể ở tầng subnet</td>
+<td>NACL (SG không có Deny, không block IP riêng lẻ theo kiểu deny)</td>
+</tr>
+<tr>
+<td>94</td>
+<td>Windows shared file system</td>
+<td>FSx for Windows File Server</td>
+</tr>
+<tr>
+<td>95</td>
+<td>high-performance computing, Lustre, scratch file system</td>
+<td>FSx for Lustre</td>
+</tr>
+<tr>
+<td>96</td>
+<td>real-time processing, windowed aggregation trên stream</td>
+<td>Kinesis Data Analytics / Managed Service for Apache Flink (khái niệm)</td>
+</tr>
+<tr>
+<td>97</td>
+<td>load data streaming vào S3/Redshift gần real-time, không code</td>
+<td>Kinesis Data Firehose</td>
+</tr>
+<tr>
+<td>98</td>
+<td>Big Data processing, Hadoop, Spark</td>
+<td>EMR</td>
+</tr>
+<tr>
+<td>99</td>
+<td>search / log analytics, full-text search</td>
+<td>OpenSearch Service</td>
+</tr>
+<tr>
+<td>100</td>
+<td>cost optimization: tắt tài nguyên idle, right-sizing</td>
+<td>Trusted Advisor / Compute Optimizer / Cost Explorer</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>2. Số Liệu Hay Hỏi</h2>
+<h3>Giới hạn kinh điển — thuộc lòng</h3>
+<table>
+<thead>
+<tr>
+<th>Dịch vụ</th>
+<th>Số liệu</th>
+<th>Ghi chú thi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lambda</td>
+<td>Timeout tối đa <strong>15 phút</strong></td>
+<td>Quá 15 phút → nghĩ Step Functions / ECS / EC2</td>
+</tr>
+<tr>
+<td>Lambda</td>
+<td>Đồng bộ payload / async</td>
+<td>Hỏi theo ngữ cảnh, đừng nhầm timeout với API Gateway</td>
+</tr>
+<tr>
+<td>API Gateway</td>
+<td>Timeout tích hợp mặc định hay gặp <strong>29 giây</strong> (REST API)</td>
+<td>Tác vụ dài → trả về ngay + SQS/Lambda async</td>
+</tr>
+<tr>
+<td>SQS</td>
+<td>Retention tối đa <strong>14 ngày</strong></td>
+<td>Mặc định 4 ngày</td>
+</tr>
+<tr>
+<td>SQS</td>
+<td>Visibility timeout tối đa <strong>12 giờ</strong></td>
+<td>Mặc định 30 giây</td>
+</tr>
+<tr>
+<td>SQS FIFO</td>
+<td><strong>300 TPS</strong> không batch, <strong>3.000 TPS</strong> khi batching</td>
+<td>Standard = gần như không giới hạn, best-effort ordering</td>
+</tr>
+<tr>
+<td>S3</td>
+<td>Durability <strong>99.999999999% (11 số 9)</strong></td>
+<td>Durability ≠ Availability — đề rất thích bẫy cặp này</td>
+</tr>
+<tr>
+<td>S3</td>
+<td>Object tối đa <strong>5 TB</strong>; single PUT tối đa <strong>5 GB</strong></td>
+<td>Lớn hơn → Multipart Upload</td>
+</tr>
+<tr>
+<td>RDS</td>
+<td>Automated backup retention <strong>1–35 ngày</strong></td>
+<td>0 ngày = tắt automated backup</td>
+</tr>
+<tr>
+<td>Aurora</td>
+<td>Storage tự scale tối đa <strong>128 TB</strong></td>
+<td>Aurora storage tự động mở rộng</td>
+</tr>
+<tr>
+<td>Aurora</td>
+<td>Tối đa <strong>15 Aurora Replicas</strong></td>
+<td>RDS Read Replica thường tối đa 5 (đa số engine cổ điển)</td>
+</tr>
+<tr>
+<td>DynamoDB DAX</td>
+<td>Độ trễ <strong>microsecond</strong></td>
+<td>ElastiCache thường được mô tả sub-millisecond</td>
+</tr>
+<tr>
+<td>ElastiCache</td>
+<td>Độ trễ <strong>sub-millisecond</strong></td>
+<td>So sánh với DAX ở trên</td>
+</tr>
+<tr>
+<td>CloudFront</td>
+<td>—</td>
+<td>Cache tại edge; origin: S3, ALB, EC2, HTTP bất kỳ</td>
+</tr>
+</tbody>
+</table>
+<h3>DR — xếp theo RTO tăng dần (chậm → nhanh), chi phí tăng theo</h3>
+<table>
+<thead>
+<tr>
+<th>Thứ tự</th>
+<th>Chiến lược</th>
+<th>RTO tương đối</th>
+<th>Chi phí tương đối</th>
+<th>Ý tưởng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 (chậm nhất)</td>
+<td>Backup and Restore</td>
+<td>Giờ</td>
+<td>Thấp nhất</td>
+<td>Chỉ có backup, khi có sự cố mới dựng lại</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Pilot Light</td>
+<td>Chục phút – giờ</td>
+<td>Thấp</td>
+<td>Phần lõi tối thiểu luôn chạy, còn lại bật khi cần</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Warm Standby</td>
+<td>Phút</td>
+<td>Trung bình</td>
+<td>Môi trường thu nhỏ (scaled-down) đang chạy sẵn</td>
+</tr>
+<tr>
+<td>4 (nhanh nhất)</td>
+<td>Multi-Site Active-Active</td>
+<td>Gần real-time</td>
+<td>Cao nhất</td>
+<td>Cả 2 nơi đều phục vụ traffic</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Quy tắc chọn DR: <strong>RTO/RTO càng nhỏ → càng đắt.</strong> Đề cho ngân sách thấp → Backup and Restore. Đề cho "minutes" → Warm Standby. Đề cho "scaled-down version running" → chính là định nghĩa Warm Standby.</p>
+</blockquote>
+<h3>Cặp số liệu hay bị bẫy</h3>
+<table>
+<thead>
+<tr>
+<th>Bẫy</th>
+<th>Phân biệt đúng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Durability vs Availability (S3)</td>
+<td>Durability = không mất dữ liệu (11 số 9). Availability = truy cập được, thấp hơn durability</td>
+</tr>
+<tr>
+<td>SQS visibility timeout vs retention</td>
+<td>Visibility = đang xử lý thì ẩn tin bao lâu (≤12h). Retention = tin sống trong queue bao lâu (≤14 ngày)</td>
+</tr>
+<tr>
+<td>Multi-AZ vs Read Replica</td>
+<td>Multi-AZ = HA / failover, <strong>không</strong> tăng read. Read Replica = tăng read, <strong>không</strong> tự failover kiểu Multi-AZ</td>
+</tr>
+<tr>
+<td>CloudTrail retention</td>
+<td>CloudTrail Event History mặc định 90 ngày; muốn lâu hơn → gửi log vào S3</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>3. Cây Quyết Định (ASCII)</h2>
+<h3>3.1 Chọn Storage</h3>
+<pre><code>Cần lưu trữ gì?
+│
+├─ Object (file, ảnh, video, backup, data lake, static web)?
+│   └─ S3
+│       ├─ Truy cập thường xuyên ──────────► S3 Standard
+│       ├─ Ít truy cập, vẫn cần nhanh ─────► S3 Standard-IA / One Zone-IA
+│       ├─ Không rõ pattern truy cập ──────► S3 Intelligent-Tiering
+│       └─ Archive lâu, hiếm khi lấy ──────► Glacier Instant / Flexible / Deep Archive (rẻ nhất)
+│
+├─ Block storage gắn vào 1 EC2 (như ổ cứng)?
+│   └─ EBS
+│       ├─ General purpose ────────────────► gp3 (mặc định nên chọn)
+│       ├─ IOPS cực cao, database ─────────► io2 / io1
+│       ├─ Throughput cao, big data ───────► st1 (HDD)
+│       └─ Rẻ nhất, archive lạnh ──────────► sc1 (HDD)
+│   (Cần tốc độ vật lý tạm thời, mất khi stop/terminate? → Instance Store)
+│
+├─ File system chia sẻ cho NHIỀU instance cùng mount?
+│   ├─ Linux / NFS ────────────────────────► EFS
+│   ├─ Windows / SMB ──────────────────────► FSx for Windows
+│   └─ HPC, throughput cực cao ────────────► FSx for Lustre
+│
+└─ Hybrid: on-prem cần truy cập storage AWS như file local?
+    └─ Storage Gateway
+</code></pre>
+<h3>3.2 Chọn Database</h3>
+<pre><code>Dữ liệu có cấu trúc quan hệ (relational, JOIN, transaction phức tạp)?
+│
+├─ CÓ
+│   ├─ Muốn AWS-managed tương thích MySQL/PostgreSQL, scale tốt hơn RDS thường?
+│   │   └─ Aurora
+│   ├─ Cần engine cụ thể (Oracle, SQL Server...) / kiểm soát truyền thống?
+│   │   └─ RDS
+│   └─ Phân tích OLAP, data warehouse, petabyte, query tổng hợp?
+│       └─ Redshift
+│
+└─ KHÔNG (NoSQL / chuyên biệt)
+    ├─ Key-value, scale triệu request/s, serverless ──► DynamoDB (+ DAX nếu cần microsecond)
+    ├─ Document / key-value tương thích MongoDB ───────► DocumentDB (khái niệm)
+    ├─ Graph: quan hệ giữa các thực thể là trọng tâm ──► Neptune
+    ├─ In-memory: cache / session / leaderboard ──────► ElastiCache (Redis / Memcached)
+    ├─ Ledger: lịch sử bất biến, kiểm chứng được ─────► QLDB
+    ├─ Time-series: dữ liệu theo thời gian, IoT ──────► Timestream (khái niệm)
+    └─ Search: full-text, log analytics ──────────────► OpenSearch
+
+Chỉ cần truy vấn data lake trên S3 bằng SQL, không muốn dựng DB?
+└─ Athena (query) + Glue (catalog / ETL)
+</code></pre>
+<h3>3.3 Chọn Compute</h3>
+<pre><code>Chạy code / workload gì?
+│
+├─ Event-driven, chạy ngắn (≤15 phút), không muốn quản server?
+│   └─ Lambda
+│       └─ Workflow nhiều bước / chờ người duyệt / chạy dài theo bước?
+│           └─ Lambda + Step Functions
+│
+├─ Container?
+│   ├─ Không muốn quản server ─────────────► ECS / EKS on Fargate
+│   ├─ AWS-native, đơn giản ────────────────► ECS
+│   └─ Cần Kubernetes chuẩn / portability ─► EKS
+│
+├─ Cần toàn quyền OS, license riêng, workload dài hạn ổn định?
+│   └─ EC2 (+ Auto Scaling Group + ELB cho HA/scale)
+│       ├─ Traffic thay đổi ───────────────► ASG + ALB/NLB
+│       └─ Batch / HPC rời rạc ────────────► EC2 Spot / Batch (AWS Batch)
+│
+├─ Web app / API, không muốn quản hạ tầng, chấp nhận platform của AWS?
+│   └─ Elastic Beanstalk (PaaS) / App Runner (khái niệm)
+│
+└─ Chỉ là website tĩnh?
+    └─ Không cần compute: S3 Static Hosting + CloudFront
+</code></pre>
+<hr />
+<h2>4. Năm Câu Thần Chú Trước Khi Vào Phòng Thi</h2>
+<ol>
+<li><strong>Decouple = SQS. Fanout = SNS + SQS. Order/exactly-once = SQS FIFO.</strong></li>
+<li><strong>Audit người = CloudTrail. Config của resource = AWS Config. Metrics = CloudWatch.</strong></li>
+<li><strong>Multi-AZ = HA, Read Replica = scale read. Đừng bao giờ đánh đồng.</strong></li>
+<li><strong>Security Group = stateful + chỉ Allow. NACL = stateless + có Deny.</strong></li>
+<li><strong>Rẻ nhất thường là đáp án sai nếu đề đòi hỏi HA / low latency / RTO nhỏ — đọc yêu cầu hiệu năng trước, giá sau.</strong></li>
+</ol></article>
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

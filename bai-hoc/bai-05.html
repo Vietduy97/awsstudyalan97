@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 05 — S3: Lưu trữ đối tượng (Object Storage) — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 05 — S3: Lưu trữ đối tượng (Object Storage)</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Hiểu S3 là gì: <code>object storage</code>, khác hoàn toàn với ổ đĩa <code>block storage</code> như EBS.</li>
+<li>Nắm rõ 3 khái niệm gốc: <code>bucket</code>, <code>object</code>, <code>key</code>.</li>
+<li>Phân biệt được 7 <code>storage class</code> và biết chọn class nào cho rẻ mà vẫn đúng yêu cầu truy cập.</li>
+<li>Biết dùng <code>Versioning</code>, <code>Lifecycle rules</code>, <code>Replication</code>, <code>encryption</code> và <code>Presigned URL</code> đúng tình huống đề thi hay hỏi.</li>
+<li>Đọc được keyword tiếng Anh trong đề SAA-C03 và map về đúng tính năng S3.</li>
+</ul>
+<h2>Lý thuyết chính (tiếng Việt dễ hiểu, giữ nguyên thuật ngữ English)</h2>
+<h3>1. S3 là object storage</h3>
+<p>S3 (Simple Storage Service) là dịch vụ lưu file dạng <code>object</code>. Bạn không format ổ đĩa, không chia partition. Bạn chỉ tạo một <code>bucket</code> (như một thùng chứa), rồi ném file vào đó.</p>
+<p>Mỗi file là một <code>object</code>, gồm dữ liệu + <code>metadata</code>. Tên đầy đủ của object trong bucket gọi là <code>key</code>. Ví dụ: bucket <code>anh-du-lich-da-lat</code>, key <code>2026/hue/mua-xuan.jpg</code> — nhìn giống đường dẫn thư mục nhưng thực chất S3 là phẳng (flat), dấu <code>/</code> chỉ để tổ chức cho dễ nhìn.</p>
+<p>Điểm mạnh nhất của S3 là <code>durability</code> (độ bền dữ liệu) <strong>99.999999999% — 11 số 9</strong>. Hiểu đơn giản: nếu bạn lưu 10.000 object, trung bình 10 triệu năm mới mất 1 object. Lưu ý: durability khác <code>availability</code> (tính sẵn sàng để truy cập được). Đề thi rất hay bẫy hai chữ này.</p>
+<h3>2. Storage Classes — chọn class là chọn tiền</h3>
+<p>Đây là phần ăn điểm Cost-Optimized (20% đề thi).</p>
+<ul>
+<li><strong>S3 Standard:</strong> mặc định, truy cập thường xuyên, đắt nhất trong nhóm Standard nhưng bền và nhanh.</li>
+<li><strong>S3 Standard-IA (Infrequent Access):</strong> ít truy cập, rẻ hơn Standard, nhưng có phí khi lấy file ra (<code>retrieval fee</code>).</li>
+<li><strong>S3 One Zone-IA:</strong> giống Standard-IA nhưng chỉ lưu ở 1 <code>Availability Zone (AZ)</code>. Rẻ hơn nữa, đổi lại AZ đó sập thì mất dữ liệu. Chỉ dùng cho dữ liệu tạo lại được.</li>
+<li><strong>S3 Glacier Instant Retrieval:</strong> lưu trữ lạnh (<code>archive</code>) nhưng cần lấy lại thì lấy ngay được (mili-giây). Phù hợp ảnh y tế, backup quý ít khi mở nhưng mở là cần ngay.</li>
+<li><strong>S3 Glacier Flexible Retrieval:</strong> archive rẻ hơn, lấy lại mất từ vài phút đến vài giờ.</li>
+<li><strong>S3 Glacier Deep Archive:</strong> rẻ nhất, cho dữ liệu giữ 7-10 năm vì luật. Lấy lại mất khoảng 12 giờ.</li>
+<li><strong>S3 Intelligent-Tiering:</strong> không đoán được tần suất truy cập? Để AWS tự theo dõi và tự chuyển class giúp bạn, tốn thêm phí giám sát nhỏ nhưng tránh chọn sai.</li>
+</ul>
+<p>Quy tắc nhớ: càng lạnh (cold) càng rẻ, càng lấy lại lâu và càng có phí retrieval.</p>
+<h3>3. Lifecycle Rules — tự động dọn nhà</h3>
+<p><code>Lifecycle rules</code> cho phép bạn đặt luật tự động:
+- Sau X ngày thì chuyển object sang class rẻ hơn. Ví dụ: 30 ngày Standard → 90 ngày Standard-IA → 1 năm Glacier Deep Archive.
+- Sau X ngày thì tự xóa (<code>expiration</code>). Ví dụ: log chỉ giữ 90 ngày rồi xóa.</p>
+<p>Đây là đáp án kinh điển khi đề hỏi "how to reduce S3 storage costs automatically?"</p>
+<h3>4. Versioning, MFA Delete và Object Lock — chống xóa nhầm, chống ransomware</h3>
+<ul>
+<li><strong>Versioning:</strong> bật lên thì mỗi lần ghi đè file, S3 giữ lại bản cũ. Xóa file thực ra chỉ tạo <code>delete marker</code>, vẫn khôi phục được bản trước. Tắt Versioning không xóa các version cũ.</li>
+<li><strong>MFA Delete:</strong> muốn xóa vĩnh viễn một version hoặc tắt Versioning thì phải nhập mã <code>Multi-Factor Authentication</code>. Thêm một lớp chống xóa nhầm.</li>
+<li><strong>S3 Object Lock:</strong> cơ chế <code>WORM</code> (Write Once, Read Many) — file đã khóa thì trong thời gian giữ (<code>retention period</code>) không ai xóa/sửa được, kể cả chủ tài khoản. Có 2 mode:</li>
+<li><code>Governance mode</code>: người có quyền đặc biệt vẫn gỡ khóa được.</li>
+<li><code>Compliance mode</code>: không ai gỡ được cho đến khi hết hạn — đáp án cho mọi câu hỏi về <code>compliance / regulatory requirement</code>.</li>
+</ul>
+<h3>5. Replication — sao chép sang bucket khác</h3>
+<ul>
+<li><strong>CRR (Cross-Region Replication):</strong> bucket nguồn và đích ở khác <code>Region</code>.</li>
+<li><strong>SRR (Same-Region Replication):</strong> hai bucket cùng Region.</li>
+</ul>
+<p>Điều kiện bắt buộc cho cả hai: <strong>phải bật Versioning ở cả bucket nguồn và bucket đích</strong>. Replication là bất đồng bộ (<code>asynchronous</code>). Chỉ object mới tạo sau khi bật replication mới được sao tự động, object cũ muốn sao phải dùng cách khác (S3 Batch Replication) — đây là bẫy hay gặp.</p>
+<h3>6. Encryption — mã hóa</h3>
+<ul>
+<li><strong>SSE-S3:</strong> S3 tự quản lý key, mã hóa bằng AES-256. Mặc định, ít việc nhất.</li>
+<li><strong>SSE-KMS:</strong> dùng AWS KMS key. Kiểm soát được ai dùng key, có log trong CloudTrail. Đáp án khi đề nhắc <code>audit</code>, <code>control access to encryption keys</code>.</li>
+<li><strong>SSE-C:</strong> khách hàng tự mang key (<code>customer-provided key</code>), gửi kèm mỗi request. AWS không lưu key của bạn.</li>
+<li><strong>Client-side encryption:</strong> bạn tự mã hóa file trước khi upload lên S3, S3 chỉ thấy dữ liệu đã mã hóa.</li>
+</ul>
+<h3>7. Ai được truy cập? Bucket Policy, ACL và Block Public Access</h3>
+<ul>
+<li><strong>Bucket policy:</strong> file JSON gắn vào bucket, quyết định ai (user, account, IP...) được/không được làm gì. Đây là cách chính, nên ưu tiên dùng. Là <code>resource-based policy</code>.</li>
+<li><strong>ACL (Access Control List):</strong> cơ chế cũ, gắn vào từng object/bucket, kiểm soát thô hơn. Đề thi hiện nay ưu tiên bucket policy, ACL thường là đáp án sai nếu có lựa chọn bucket policy.</li>
+<li><strong>S3 Block Public Access:</strong> công tắc chặn toàn bộ truy cập public ở cấp account hoặc bucket. Khi đề nói "ensure bucket is never public", hãy nghĩ đến tính năng này.</li>
+</ul>
+<h3>8. Presigned URL và các tính năng hay thi</h3>
+<ul>
+<li><strong>Presigned URL:</strong> tạo một link tạm thời có chữ ký, có thời hạn hết hạn, để người ngoài (không có tài khoản AWS) vẫn download/upload được 1 object riêng tư. Ví dụ: cho khách tải hóa đơn trong 15 phút. Hết hạn là link vô dụng.</li>
+<li><strong>Static website hosting:</strong> bật lên, bucket thành web server tĩnh chứa HTML/CSS/JS. Không chạy được code phía server như PHP.</li>
+<li><strong>S3 Transfer Acceleration:</strong> ở mức khái niệm, tính năng này dùng mạng biên (edge locations) của CloudFront để upload file từ xa về bucket nhanh hơn khi người dùng ở cách xa Region của bucket.</li>
+</ul>
+<h2>Ví dụ đời thường</h2>
+<p>Hãy hình dung S3 như một <strong>kho giữ đồ khổng lồ ở sân bay</strong>.</p>
+<p>Bucket là một gian kho bạn thuê, có tên duy nhất toàn cầu như biển số xe — không ai trùng được. Object là từng vali bạn gửi vào kho, key là mã tem dán trên vali để nhân viên tìm ra ngay.</p>
+<p>Storage class giống như vị trí để vali: để ngay cửa kho (Standard) thì lấy nhanh nhưng tiền thuê chỗ đắt. Để sâu trong kho lạnh (Glacier Deep Archive) thì siêu rẻ, nhưng khi cần lấy phải hẹn trước nửa ngày để nhân viên đi tìm.</p>
+<p>Lifecycle rule là tờ giấy bạn dặn quản kho: "Vali nào để quá 30 ngày không ai đụng thì tự chuyển vào kho rẻ phía sau, quá 1 năm thì hủy." Bạn không phải tự đi kiểm tra từng ngày.</p>
+<p>Presigned URL giống như bạn viết giấy ủy quyền có ghi rõ "giấy này chỉ có giá trị đến 17h hôm nay, chỉ được lấy đúng vali số 12" rồi đưa cho shipper. Shipper không cần chìa khóa kho, hết giờ giấy tự hết giá trị.</p>
+<h2>Phân biệt dễ nhầm</h2>
+<table>
+<thead>
+<tr>
+<th>Cặp dễ nhầm</th>
+<th>Cách phân biệt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Durability vs Availability</td>
+<td>Durability 11 số 9 là <strong>không mất dữ liệu</strong>. Availability là <strong>truy cập được ngay lúc đó hay không</strong>.</td>
+</tr>
+<tr>
+<td>Standard-IA vs One Zone-IA</td>
+<td>Standard-IA lưu ở nhiều AZ. One Zone-IA chỉ 1 AZ nên rẻ hơn nhưng rủi ro mất dữ liệu cao hơn.</td>
+</tr>
+<tr>
+<td>Glacier Instant vs Flexible vs Deep Archive</td>
+<td>Instant: lấy ngay. Flexible: vài phút – vài giờ. Deep Archive: ~12 giờ, rẻ nhất.</td>
+</tr>
+<tr>
+<td>SSE-S3 vs SSE-KMS vs SSE-C</td>
+<td>S3 giữ key / KMS giữ key có audit / bạn tự mang key theo mỗi request.</td>
+</tr>
+<tr>
+<td>Bucket Policy vs ACL</td>
+<td>Bucket Policy là JSON, hiện đại, kiểm soát chi tiết cho cả bucket — ưu tiên. ACL là cách cũ, thô.</td>
+</tr>
+<tr>
+<td>Versioning vs Object Lock</td>
+<td>Versioning giữ lại bản cũ, vẫn xóa được. Object Lock <strong>cấm xóa/sửa</strong> trong thời hạn retention.</td>
+</tr>
+</tbody>
+</table>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li>Đề cho <code>11 nines</code> — đáp án đang nói về <strong>durability</strong>, không phải availability.</li>
+<li>Thấy chữ <code>compliance</code>, <code>WORM</code>, <code>cannot be deleted even by root</code> → chọn ngay <strong>S3 Object Lock – Compliance mode</strong>.</li>
+<li>Câu hỏi về replication mà đáp án không nhắc Versioning là thiếu điều kiện bắt buộc. <strong>CRR/SRR đều bắt buộc bật Versioning ở cả 2 phía.</strong></li>
+<li>Dữ liệu ít truy cập nhưng "must be retrieved immediately / milliseconds" → không chọn Glacier Flexible, phải chọn <strong>Glacier Instant Retrieval</strong> hoặc Standard-IA tùy ngữ cảnh.</li>
+<li>Cho người dùng bên ngoài tải file private trong thời gian ngắn → <strong>Presigned URL</strong>, không phải mở bucket public, không phải tạo IAM user cho khách.</li>
+<li>Tiết kiệm chi phí tự động theo tuổi của object → <strong>Lifecycle rules</strong>. Tiết kiệm khi không đoán được pattern truy cập → <strong>Intelligent-Tiering</strong>.</li>
+<li>Bucket policy là resource-based, còn IAM policy là user-based. Đề hay hỏi điểm khác biệt này.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<p>S3 là object storage với bucket / object / key, durability 11 số 9.
+Chọn storage class theo tần suất truy cập: Standard → IA → Glacier → Deep Archive càng lạnh càng rẻ.
+Lifecycle rules tự chuyển class và tự xóa object để tối ưu chi phí.
+Versioning + MFA Delete chống xóa nhầm, Object Lock Compliance đáp ứng yêu cầu WORM/compliance.
+Replication (CRR/SRR) bắt buộc Versioning, Presigned URL chia sẻ file private có thời hạn.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-04.html">← Bài 04 — Lambda và Serverless</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-06.html">Bài 06 — EBS & EFS: Ổ đĩa cho EC2 và đĩa dùng chung →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-05"; window.QUIZ_DATA = [{"n": 1, "text": "A company must store audit logs for 7 years. The logs must not be deleted or modified by anyone, including the root user, during the retention period. Which S3 feature should be used?", "options": {"A": "S3 Versioning", "B": "S3 Object Lock in Compliance mode", "C": "S3 Lifecycle rules", "D": "MFA Delete"}, "answer": "B", "explanation": "Object Lock ở Compliance mode là cơ chế WORM duy nhất trong các lựa chọn khiến không ai, kể cả root, xóa/sửa được object trước khi hết retention period. Versioning chỉ giữ bản cũ, MFA Delete chỉ thêm bước xác thực, Lifecycle chỉ chuyển class/xóa theo lịch — không khóa dữ liệu vì compliance."}, {"n": 2, "text": "A company wants to replicate objects from a bucket in `ap-southeast-1` to a bucket in `eu-west-1` for disaster recovery. What is a prerequisite for S3 replication?", "options": {"A": "Enable S3 Transfer Acceleration on both buckets", "B": "Enable Versioning on both the source and destination buckets", "C": "Make both buckets public", "D": "Enable static website hosting"}, "answer": "B", "explanation": "Replication khác Region là CRR, và điều kiện bắt buộc cho cả CRR lẫn SRR là phải bật Versioning ở cả bucket nguồn và bucket đích. Transfer Acceleration, public bucket hay website hosting đều không liên quan."}, {"n": 3, "text": "Users in another continent complain that uploading large files to an S3 bucket is slow, and the company also needs to give an external customer temporary download access to a private invoice file for 15 minutes. Which combination is correct?", "options": {"A": "Block Public Access and ACL", "B": "S3 Transfer Acceleration for uploads and a Presigned URL for the download", "C": "Glacier Deep Archive and bucket policy set to public", "D": "MFA Delete and SSE-C"}, "answer": "B", "explanation": "Transfer Acceleration giúp upload nhanh hơn từ xa nhờ edge locations. Presigned URL là cách chuẩn để cấp quyền tải 1 object private cho người ngoài trong thời gian giới hạn (15 phút) mà không cần mở bucket ra public."}, {"n": 4, "text": "An application stores images that are accessed frequently in the first 30 days, rarely after that, and must be kept for 1 year before deletion. The solution must be automatic and cost-effective. What should be used?", "options": {"A": "S3 Intelligent-Tiering with MFA Delete", "B": "S3 Lifecycle rules to transition objects to cheaper storage classes and expire them after 1 year", "C": "CRR to another Region", "D": "S3 Object Lock in Governance mode"}, "answer": "B", "explanation": "Pattern truy cập đã biết rõ theo thời gian (nóng 30 ngày đầu, lạnh dần, xóa sau 1 năm) là bài toán kinh điển của Lifecycle rules: tự transition sang Standard-IA / Glacier và đặt expiration sau 1 năm — vừa tự động vừa rẻ nhất."}, {"n": 5, "text": "A security audit requires that encryption keys for data in S3 are centrally controlled and every use of the keys is logged. Which encryption option meets this requirement?", "options": {"A": "SSE-S3", "B": "SSE-C", "C": "SSE-KMS", "D": "Client-side encryption with keys stored in the application code"}, "answer": "C", "explanation": "SSE-KMS dùng key trong AWS KMS nên bạn kiểm soát được quyền dùng key và mọi lần dùng key đều được ghi log (qua CloudTrail). SSE-S3 thì AWS quản lý hết, SSE-C là bạn tự mang key theo request chứ không quản lý tập trung trong KMS."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

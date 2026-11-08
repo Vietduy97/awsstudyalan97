@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phân Biệt Các Dịch Vụ — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="index.html">Trang chủ</a>
+      <a href="bai-hoc/index.html">Bài học</a>
+      <a href="cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="phan-biet.html">Phân biệt</a>
+      <a href="de-thi/index.html">Đề thi</a>
+      <a href="tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+<article class="md-body"><h1>Phân Biệt Các Dịch Vụ SAA-C03 — Bảng So Sánh &amp; Quy Tắc Chọn</h1>
+<blockquote>
+<p>Nguyên tắc đọc: mỗi nhóm gồm <strong>bảng so sánh</strong> + <strong>quy tắc chọn</strong> (câu chốt để chọn đáp án trong phòng thi).</p>
+</blockquote>
+<hr />
+<h2>1. S3 vs EBS vs EFS</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>S3</th>
+<th>EBS</th>
+<th>EFS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kiểu lưu trữ</td>
+<td>Object</td>
+<td>Block</td>
+<td>File (NFS)</td>
+</tr>
+<tr>
+<td>Gắn vào</td>
+<td>Không gắn — truy cập qua API/HTTP</td>
+<td>1 EC2 (thường), cùng AZ</td>
+<td>Nhiều EC2 cùng lúc</td>
+</tr>
+<tr>
+<td>Phạm vi</td>
+<td>Region (bucket), toàn cục qua HTTP</td>
+<td>1 Availability Zone</td>
+<td>Multi-AZ trong 1 Region</td>
+</tr>
+<tr>
+<td>Quy mô</td>
+<td>Gần như vô hạn, object tới 5 TB</td>
+<td>Theo size volume chọn trước</td>
+<td>Tự scale theo dung lượng</td>
+</tr>
+<tr>
+<td>Dùng cho</td>
+<td>File, ảnh, backup, data lake, static web</td>
+<td>Boot volume, database trên EC2, ổ cứng</td>
+<td>Thư mục dùng chung, home directory, CMS</td>
+</tr>
+<tr>
+<td>Hệ điều hành</td>
+<td>Không liên quan OS</td>
+<td>Theo instance gắn vào</td>
+<td>Linux (NFS)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong>
+- Nhiều instance <strong>cùng mount</strong> 1 hệ thống file → <strong>EFS</strong>.
+- Ổ đĩa cho <strong>1 instance</strong> → <strong>EBS</strong>.
+- Lưu <strong>file/object</strong> truy cập qua mạng, backup, web tĩnh → <strong>S3</strong>.</p>
+<hr />
+<h2>2. RDS vs Aurora vs DynamoDB vs Redshift vs ElastiCache</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>RDS</th>
+<th>Aurora</th>
+<th>DynamoDB</th>
+<th>Redshift</th>
+<th>ElastiCache</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mô hình</td>
+<td>Relational SQL</td>
+<td>Relational SQL</td>
+<td>NoSQL key-value/document</td>
+<td>Relational cột — Data Warehouse</td>
+<td>In-memory cache</td>
+</tr>
+<tr>
+<td>Workload</td>
+<td>OLTP truyền thống</td>
+<td>OLTP hiệu năng/scale cao</td>
+<td>OLTP scale cực lớn, access pattern rõ</td>
+<td>OLAP, BI, phân tích petabyte</td>
+<td>Cache, session, leaderboard</td>
+</tr>
+<tr>
+<td>JOIN / SQL phức tạp</td>
+<td>Có</td>
+<td>Có</td>
+<td><strong>Không</strong></td>
+<td>Có (query tổng hợp nặng)</td>
+<td>Không</td>
+</tr>
+<tr>
+<td>Tương thích</td>
+<td>MySQL, PostgreSQL, MariaDB, Oracle, SQL Server</td>
+<td>Chỉ MySQL, PostgreSQL</td>
+<td>API riêng</td>
+<td>PostgreSQL-based SQL</td>
+<td>Redis / Memcached protocol</td>
+</tr>
+<tr>
+<td>Scale</td>
+<td>Multi-AZ + Read Replica</td>
+<td>15 replicas, storage 128 TB</td>
+<td>On-demand/provisioned, gần như vô hạn</td>
+<td>Cluster / Serverless, petabyte</td>
+<td>Thêm node / replica</td>
+</tr>
+<tr>
+<td>Serverless?</td>
+<td>Không (có biến thể riêng)</td>
+<td>Có Aurora Serverless</td>
+<td>Có (bản chất serverless)</td>
+<td>Có Redshift Serverless</td>
+<td>Có biến thể serverless (khái niệm)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong>
+- Cần <strong>Oracle / SQL Server</strong> → <strong>RDS</strong> (Aurora không có).
+- SQL + muốn AWS tối ưu mạnh hơn RDS → <strong>Aurora</strong>.
+- Triệu request/s, key-value, không JOIN → <strong>DynamoDB</strong>.
+- Truy vấn <strong>phân tích</strong> trên dữ liệu khổng lồ → <strong>Redshift</strong>.
+- Không phải DB chính — chỉ <strong>tăng tốc đọc lặp lại</strong> → <strong>ElastiCache</strong> đặt trước DB.</p>
+<hr />
+<h2>3. ALB vs NLB vs GWLB (vs CLB cũ)</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>ALB</th>
+<th>NLB</th>
+<th>GWLB</th>
+<th>CLB (Classic)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Layer</td>
+<td>7 — HTTP/HTTPS</td>
+<td>4 — TCP/UDP/TLS</td>
+<td>3 — IP packet</td>
+<td>4/7 đời cũ</td>
+</tr>
+<tr>
+<td>Routing theo</td>
+<td>Path, host, header, query</td>
+<td>Port/protocol</td>
+<td>Chèn appliance kiểm tra traffic</td>
+<td>Cơ bản</td>
+</tr>
+<tr>
+<td>Target</td>
+<td>EC2, IP, container, Lambda</td>
+<td>EC2, IP, container, ALB</td>
+<td>Firewall/IDS appliance bên thứ ba</td>
+<td>EC2</td>
+</tr>
+<tr>
+<td>IP tĩnh / Elastic IP</td>
+<td>Không — dùng DNS name</td>
+<td><strong>Có</strong></td>
+<td>—</td>
+<td>Không</td>
+</tr>
+<tr>
+<td>Hiệu năng / độ trễ</td>
+<td>Tốt</td>
+<td>Cực cao, ultra-low latency</td>
+<td>Theo appliance</td>
+<td>Thấp nhất</td>
+</tr>
+<tr>
+<td>Use case điển hình</td>
+<td>Web, API, microservices</td>
+<td>Gaming, IoT, TCP/UDP, cần IP tĩnh</td>
+<td>Kiểm tra/chặn traffic tập trung</td>
+<td>Chỉ khi đề nhắc legacy</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong>
+- Đề nhắc <strong>path/host-based routing, HTTP</strong> → <strong>ALB</strong>.
+- Đề nhắc <strong>static IP, TCP/UDP, extreme performance</strong> → <strong>NLB</strong>.
+- Đề nhắc <strong>third-party firewall appliance, inspect all traffic</strong> → <strong>GWLB</strong>.
+- <strong>CLB</strong> gần như luôn là đáp án sai trong đề mới, trừ ngữ cảnh legacy rõ ràng.</p>
+<hr />
+<h2>4. SQS vs SNS vs EventBridge (vs Step Functions)</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>SQS</th>
+<th>SNS</th>
+<th>EventBridge</th>
+<th>Step Functions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bản chất</td>
+<td>Queue (hàng đợi)</td>
+<td>Pub/Sub push</td>
+<td>Event bus + rule + schedule</td>
+<td>Workflow / state machine</td>
+</tr>
+<tr>
+<td>Mô hình nhận</td>
+<td>Consumer <strong>pull</strong> (tự lấy)</td>
+<td>Subscriber nhận <strong>push</strong></td>
+<td>Target được gọi theo rule</td>
+<td>Các bước chạy theo thứ tự/trạng thái</td>
+</tr>
+<tr>
+<td>Lưu tin chờ?</td>
+<td>Có — tới 14 ngày</td>
+<td>Không lưu kiểu queue</td>
+<td>Có archive/replay event</td>
+<td>Lưu trạng thái workflow đang chạy</td>
+</tr>
+<tr>
+<td>Thứ tự / exactly-once</td>
+<td>Có với FIFO</td>
+<td>Có với FIFO topic + FIFO queue</td>
+<td>Không phải thế mạnh</td>
+<td>Điều phối có trạng thái, retry/catch</td>
+</tr>
+<tr>
+<td>Fanout</td>
+<td>Không tự fanout</td>
+<td><strong>Thế mạnh chính</strong></td>
+<td>Route 1 sự kiện → nhiều target</td>
+<td>Không phải để fanout</td>
+</tr>
+<tr>
+<td>Lịch cron</td>
+<td>Không</td>
+<td>Không</td>
+<td><strong>Có</strong></td>
+<td>Có thể được trigger theo lịch</td>
+</tr>
+<tr>
+<td>Use case</td>
+<td>Decouple, buffer, chống quá tải</td>
+<td>Thông báo, fanout SNS→SQS</td>
+<td>Sự kiện AWS/SaaS, lịch, event-driven</td>
+<td>Nhiều bước, rẽ nhánh, chờ người duyệt</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong>
+- <strong>Decouple + xử lý sau cũng được</strong> → SQS.
+- <strong>1 tin → nhiều nơi nhận ngay</strong> → SNS.
+- <strong>Sự kiện + rule phức tạp + cron + SaaS/AWS events</strong> → EventBridge.
+- <strong>Quy trình nhiều bước có trạng thái, retry, approval</strong> → Step Functions.
+- Fanout bền vững kinh điển: <strong>SNS publish → nhiều SQS queue → mỗi consumer tự xử lý.</strong></p>
+<hr />
+<h2>5. CloudWatch vs CloudTrail vs AWS Config</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>CloudWatch</th>
+<th>CloudTrail</th>
+<th>AWS Config</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trả lời câu hỏi</td>
+<td>Hệ thống <strong>khỏe/chậm</strong> thế nào?</td>
+<td><strong>Ai</strong> đã làm <strong>gì</strong>?</td>
+<td>Resource <strong>đang/đã từng cấu hình</strong> thế nào, có <strong>tuân thủ</strong> không?</td>
+</tr>
+<tr>
+<td>Dữ liệu</td>
+<td>Metrics, logs, alarms</td>
+<td>API call records</td>
+<td>Configuration items, config history</td>
+</tr>
+<tr>
+<td>Ví dụ</td>
+<td>CPU &gt; 80% → alarm</td>
+<td>User X xóa S3 bucket lúc 3h</td>
+<td>Bucket nào tắt encryption? SG nào mở port 22 ra internet?</td>
+</tr>
+<tr>
+<td>Hành động</td>
+<td>Alarm → SNS / ASG / EC2 action</td>
+<td>Gửi log vào S3, validation chống sửa</td>
+<td>Rule không tuân thủ → remediation (SSM)</td>
+</tr>
+<tr>
+<td>Loại kiểm soát</td>
+<td>Monitoring</td>
+<td>Audit (detective)</td>
+<td>Compliance (detective)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong>
+- Thấy chữ <strong>metrics / alarm / log performance</strong> → CloudWatch.
+- Thấy chữ <strong>who / API call / audit</strong> → CloudTrail.
+- Thấy chữ <strong>configuration history / compliance rule / resource compliant?</strong> → AWS Config.</p>
+<hr />
+<h2>6. Security Group vs NACL</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Security Group (SG)</th>
+<th>Network ACL (NACL)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gắn vào</td>
+<td>Instance / ENI</td>
+<td>Subnet</td>
+</tr>
+<tr>
+<td>Stateful?</td>
+<td><strong>Stateful</strong> — traffic trả về tự được phép</td>
+<td><strong>Stateless</strong> — phải mở cả 2 chiều</td>
+</tr>
+<tr>
+<td>Rule</td>
+<td>Chỉ <strong>Allow</strong>, không có Deny</td>
+<td>Có cả <strong>Allow và Deny</strong></td>
+</tr>
+<tr>
+<td>Đánh giá rule</td>
+<td>Tất cả rule cùng áp dụng</td>
+<td>Theo <strong>số thứ tự, thấp trước</strong>, dừng ở rule khớp đầu tiên</td>
+</tr>
+<tr>
+<td>Phạm vi mặc định</td>
+<td>Mặc định chặn inbound, cho outbound</td>
+<td>Mặc định cho tất cả (default NACL); custom NACL mặc định chặn tất cả</td>
+</tr>
+<tr>
+<td>Dùng chặn 1 IP cụ thể</td>
+<td>Không (không có Deny)</td>
+<td><strong>Có — Deny rule theo IP</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong>
+- <strong>Block 1 IP / dải IP cụ thể</strong> → NACL (SG không Deny được).
+- Kiểm soát port cho <strong>từng instance/ứng dụng</strong> → SG.
+- Thực tế tốt nhất: dùng cả hai lớp (defense in depth), SG là lớp chính.</p>
+<hr />
+<h2>7. Gateway Endpoint vs Interface Endpoint</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Gateway VPC Endpoint</th>
+<th>Interface VPC Endpoint (PrivateLink)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dịch vụ hỗ trợ</td>
+<td>Chỉ <strong>S3 và DynamoDB</strong></td>
+<td>Hầu hết dịch vụ AWS còn lại + dịch vụ PrivateLink</td>
+</tr>
+<tr>
+<td>Cách hoạt động</td>
+<td>Thêm route vào route table</td>
+<td>Tạo ENI có IP riêng trong subnet</td>
+</tr>
+<tr>
+<td>Chi phí</td>
+<td><strong>Miễn phí</strong></td>
+<td>Có phí theo giờ ENI + dữ liệu</td>
+</tr>
+<tr>
+<td>Security Group</td>
+<td>Không dùng SG (dùng endpoint policy + route)</td>
+<td>Dùng SG trên ENI</td>
+</tr>
+<tr>
+<td>Dùng khi</td>
+<td>VPC truy cập S3/DynamoDB <strong>riêng tư, không qua internet</strong></td>
+<td>API Gateway private, Secrets Manager, ... từ VPC</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong>
+- <strong>S3 / DynamoDB + private + free</strong> → Gateway Endpoint.
+- Dịch vụ khác cần truy cập private từ VPC → Interface Endpoint.</p>
+<hr />
+<h2>8. EBS Volume Types (+ Instance Store)</h2>
+<table>
+<thead>
+<tr>
+<th>Loại</th>
+<th>Đĩa</th>
+<th>Dùng cho</th>
+<th>Ghi chú thi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gp3</td>
+<td>SSD</td>
+<td>Mặc định cân bằng: boot, app thường</td>
+<td>Lựa chọn mặc định tốt nhất, tách IOPS/throughput khỏi dung lượng</td>
+</tr>
+<tr>
+<td>gp2</td>
+<td>SSD</td>
+<td>Đời trước của gp3</td>
+<td>IOPS gắn với dung lượng volume</td>
+</tr>
+<tr>
+<td>io2 / io1</td>
+<td>SSD</td>
+<td>Database, workload cần IOPS cực cao, ổn định</td>
+<td>Đắt nhất; io2 bền/tốt hơn io1</td>
+</tr>
+<tr>
+<td>st1</td>
+<td>HDD</td>
+<td>Throughput cao: big data, log, data warehouse</td>
+<td>Không dùng làm boot volume</td>
+</tr>
+<tr>
+<td>sc1</td>
+<td>HDD</td>
+<td>Rẻ nhất: archive lạnh, ít truy cập</td>
+<td>Không dùng làm boot volume, throughput thấp nhất</td>
+</tr>
+<tr>
+<td>Instance Store</td>
+<td>Vật lý gắn kèm host</td>
+<td>Cache, buffer, dữ liệu <strong>tạm</strong> tốc độ cực cao</td>
+<td><strong>Mất dữ liệu khi stop/terminate</strong> — không phải storage bền</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong>
+- Không biết chọn gì → <strong>gp3</strong>.
+- "Highest IOPS / mission-critical database" → <strong>io2</strong>.
+- "Cheap + throughput, không cần IOPS" → <strong>st1</strong>. "Cheapest, cold" → <strong>sc1</strong>.
+- "Ephemeral / temporary / mất cũng không sao nhưng phải cực nhanh" → <strong>Instance Store</strong>.</p>
+<hr />
+<h2>9. S3 Storage Classes</h2>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Availability / AZ</th>
+<th>Chi phí</th>
+<th>Thời gian truy xuất</th>
+<th>Min storage duration</th>
+<th>Dùng khi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Standard</td>
+<td>Multi-AZ, cao nhất nhóm thường</td>
+<td>Cao nhất</td>
+<td>Milliseconds</td>
+<td>Không có</td>
+<td>Truy cập thường xuyên</td>
+</tr>
+<tr>
+<td>Intelligent-Tiering</td>
+<td>Multi-AZ</td>
+<td>Tự tối ưu</td>
+<td>Milliseconds</td>
+<td>Không có</td>
+<td>Pattern truy cập <strong>không đoán được</strong></td>
+</tr>
+<tr>
+<td>Standard-IA</td>
+<td>Multi-AZ</td>
+<td>Thấp</td>
+<td>Milliseconds</td>
+<td><strong>30 ngày</strong></td>
+<td>Ít truy cập nhưng cần lấy ngay, vẫn cần bền</td>
+</tr>
+<tr>
+<td>One Zone-IA</td>
+<td><strong>Chỉ 1 AZ</strong></td>
+<td>Thấp hơn Standard-IA</td>
+<td>Milliseconds</td>
+<td><strong>30 ngày</strong></td>
+<td>Ít truy cập + dữ liệu <strong>tạo lại được</strong> (mất AZ là mất dữ liệu)</td>
+</tr>
+<tr>
+<td>Glacier Instant Retrieval</td>
+<td>Multi-AZ</td>
+<td>Thấp</td>
+<td>Milliseconds</td>
+<td>90 ngày*</td>
+<td>Archive nhưng thỉnh thoảng cần lấy ngay</td>
+</tr>
+<tr>
+<td>Glacier Flexible Retrieval</td>
+<td>Multi-AZ</td>
+<td>Thấp hơn nữa</td>
+<td>Phút – giờ (theo tier lấy)</td>
+<td><strong>90 ngày</strong></td>
+<td>Archive, lấy chậm được</td>
+</tr>
+<tr>
+<td>Glacier Deep Archive</td>
+<td>Multi-AZ</td>
+<td><strong>Rẻ nhất</strong></td>
+<td>Giờ</td>
+<td><strong>180 ngày</strong></td>
+<td>Archive 7–10 năm, compliance, gần như không lấy</td>
+</tr>
+</tbody>
+</table>
+<p>* Glacier Instant Retrieval 90 ngày là mốc quen thuộc thường được dạy kèm nhóm Glacier; khi đề không nhấn vào con số này, chỉ cần nhớ: <em>archive → càng lạnh càng rẻ, lấy càng chậm.</em></p>
+<p><strong>Quy tắc chọn:</strong>
+- Không rõ tần suất truy cập → <strong>Intelligent-Tiering</strong>.
+- Ít truy cập, cần ngay, dữ liệu quan trọng → <strong>Standard-IA</strong>.
+- Ít truy cập, dữ liệu <strong>reproducible</strong> → <strong>One Zone-IA</strong> (rẻ hơn, đánh đổi 1 AZ).
+- Rẻ nhất tuyệt đối, chờ hàng giờ được → <strong>Deep Archive</strong>.
+- Bẫy kinh điển: thu hồi sớm hơn min duration vẫn <strong>bị tính phí đủ</strong> min duration.</p>
+<hr />
+<h2>10. Multi-AZ vs Read Replica (RDS)</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Multi-AZ</th>
+<th>Read Replica</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mục đích</td>
+<td>High Availability / failover</td>
+<td>Scale <strong>read</strong></td>
+</tr>
+<tr>
+<td>Bản sao có đọc được không?</td>
+<td>Standby — <strong>không</strong> phục vụ read</td>
+<td><strong>Có</strong> — phục vụ read</td>
+</tr>
+<tr>
+<td>Đồng bộ</td>
+<td>Synchronous (standby)</td>
+<td>Asynchronous</td>
+</tr>
+<tr>
+<td>Failover</td>
+<td><strong>Tự động</strong>, DNS chuyển sang standby</td>
+<td>Không tự — có thể promote thủ công thành DB độc lập</td>
+</tr>
+<tr>
+<td>Phạm vi</td>
+<td>Trong 1 Region (khác AZ)</td>
+<td>Cùng Region hoặc <strong>cross-Region</strong></td>
+</tr>
+<tr>
+<td>Tăng hiệu năng write?</td>
+<td>Không</td>
+<td>Không (chỉ giảm tải read cho primary)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong>
+- Đề hỏi <strong>disaster / failover / availability</strong> → Multi-AZ.
+- Đề hỏi <strong>read traffic quá tải, báo cáo làm chậm DB chính</strong> → Read Replica.
+- Cần cả hai → dùng <strong>cả hai</strong>, đây là tổ hợp rất hay ra thi.</p>
+<hr />
+<h2>11. Provisioned vs On-Demand (DynamoDB)</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Provisioned</th>
+<th>On-Demand</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cách tính</td>
+<td>Đặt trước RCU/WCU (+ Auto Scaling)</td>
+<td>Trả theo request thực tế</td>
+</tr>
+<tr>
+<td>Phù hợp</td>
+<td>Traffic <strong>ổn định, đoán trước được</strong></td>
+<td>Traffic <strong>thất thường, spike, mới launch chưa biết</strong></td>
+</tr>
+<tr>
+<td>Chi phí</td>
+<td>Rẻ hơn khi dùng đều</td>
+<td>Đắt hơn theo đơn vị request, nhưng không lo throttle vì thiếu capacity</td>
+</tr>
+<tr>
+<td>Rủi ro</td>
+<td>Đặt thiếu → throttling; đặt thừa → lãng phí</td>
+<td>Khó dự toán ngân sách hơn</td>
+</tr>
+<tr>
+<td>Keyword đề</td>
+<td>predictable, steady, cost-optimize</td>
+<td>unpredictable, spiky, sudden spike, unknown</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong> Đoán được traffic → Provisioned để rẻ. Không đoán được / spike → On-Demand để an toàn.</p>
+<hr />
+<h2>12. ECS EC2 Launch Type vs Fargate</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>ECS on EC2</th>
+<th>Fargate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Quản lý server</td>
+<td>Tự quản EC2 (patch, scale cluster)</td>
+<td><strong>Không quản server</strong></td>
+</tr>
+<tr>
+<td>Tính tiền</td>
+<td>Theo EC2 (kể cả lúc task ít)</td>
+<td>Theo vCPU/RAM của task khi chạy</td>
+</tr>
+<tr>
+<td>Kiểm soát</td>
+<td>Cao: chọn instance, GPU, OS, daemon đặc biệt</td>
+<td>Thấp: chỉ khai báo task</td>
+</tr>
+<tr>
+<td>Phù hợp</td>
+<td>Workload ổn định, dài hạn, cần phần cứng đặc thù, tối ưu chi phí ở scale lớn</td>
+<td>Workload thất thường, đội nhỏ, muốn nhanh gọn</td>
+</tr>
+<tr>
+<td>Bẫy</td>
+<td>Cluster rỗng vẫn tốn tiền EC2</td>
+<td>Không truy cập được host bên dưới</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong> "No servers to manage" → <strong>Fargate</strong>. "Need GPU / special instance / full control" → <strong>EC2 launch type</strong>.</p>
+<hr />
+<h2>13. Disaster Recovery — 4 Chiến Lược</h2>
+<table>
+<thead>
+<tr>
+<th>Chiến lược</th>
+<th>Cách làm</th>
+<th>RTO tương đối</th>
+<th>RPO tương đối</th>
+<th>Chi phí</th>
+<th>Keyword nhận diện</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Backup and Restore</td>
+<td>Backup dữ liệu, sự cố thì restore + dựng lại</td>
+<td>Giờ (lâu nhất)</td>
+<td>Theo tần suất backup (giờ)</td>
+<td>Thấp nhất</td>
+<td>cheapest, backup only</td>
+</tr>
+<tr>
+<td>Pilot Light</td>
+<td>Lõi tối thiểu (vd DB replicate) luôn chạy, phần còn lại tắt</td>
+<td>Chục phút – giờ</td>
+<td>Nhỏ hơn (phút)</td>
+<td>Thấp</td>
+<td>core services always on, pilot light</td>
+</tr>
+<tr>
+<td>Warm Standby</td>
+<td>Môi trường <strong>thu nhỏ đang chạy sẵn</strong>, sự cố thì scale lên</td>
+<td><strong>Phút</strong></td>
+<td>Giây – phút</td>
+<td>Trung bình</td>
+<td>scaled-down environment running</td>
+</tr>
+<tr>
+<td>Multi-Site Active-Active</td>
+<td>Cả 2 Region cùng phục vụ traffic</td>
+<td>Gần <strong>real-time</strong> (nhỏ nhất)</td>
+<td>Gần <strong>0</strong></td>
+<td>Cao nhất</td>
+<td>active-active, zero downtime</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Định nghĩa phải thuộc:</strong>
+- <strong>RTO</strong> (Recovery Time Objective) = thời gian tối đa chấp nhận <strong>hệ thống chết</strong> sau sự cố.
+- <strong>RPO</strong> (Recovery Point Objective) = lượng <strong>dữ liệu tối đa chấp nhận mất</strong>, tính ngược về thời điểm backup/replica gần nhất.</p>
+<p><strong>Quy tắc chọn:</strong> Ngân sách thấp + chịu downtime lâu → Backup and Restore. Cần phút → Warm Standby. Cần gần như không downtime/mất dữ liệu → Active-Active (và chấp nhận đắt nhất).</p>
+<hr />
+<h2>14. Route 53 Routing Policies — So Sánh Nhanh</h2>
+<table>
+<thead>
+<tr>
+<th>Policy</th>
+<th>Cách chia</th>
+<th>Dùng khi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simple</td>
+<td>1 record, không health check logic</td>
+<td>Website đơn giản</td>
+</tr>
+<tr>
+<td>Weighted</td>
+<td>Theo % trọng số (vd 90/10)</td>
+<td>Blue/green, canary, A/B test, migration dần</td>
+</tr>
+<tr>
+<td>Latency-based</td>
+<td>Route tới Region độ trễ thấp nhất với user</td>
+<td>User toàn cầu, tối ưu tốc độ</td>
+</tr>
+<tr>
+<td>Geolocation</td>
+<td>Theo vị trí địa lý của user (châu lục/quốc gia)</td>
+<td>Nội dung bản địa hóa, tuân thủ pháp lý theo khu vực</td>
+</tr>
+<tr>
+<td>Geoproximity</td>
+<td>Theo khoảng cách + bias điều chỉnh</td>
+<td>Dịch chuyển traffic dần giữa các Region (khái niệm nâng cao)</td>
+</tr>
+<tr>
+<td>Failover</td>
+<td>Primary → Secondary khi health check fail</td>
+<td>Active-passive, DR đơn giản qua DNS</td>
+</tr>
+<tr>
+<td>Multi-value Answer</td>
+<td>Trả nhiều IP + health check từng cái</td>
+<td>Tăng availability đơn giản kiểu nhiều record khỏe</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong>
+- <strong>% traffic</strong> → Weighted. <strong>Nhanh nhất cho user</strong> → Latency. <strong>Theo quốc gia</strong> → Geolocation. <strong>Chết thì chuyển</strong> → Failover.</p>
+<p><strong>Latency vs Geolocation — bẫy kinh điển:</strong> Latency chọn theo <strong>tốc độ mạng thực tế</strong>, Geolocation chọn theo <strong>vị trí pháp lý/nội dung</strong> — user ở gần chưa chắc phải phục vụ nội dung của nước đó.</p>
+<hr />
+<h2>15. Secrets Manager vs Parameter Store</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Secrets Manager</th>
+<th>SSM Parameter Store</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mục đích chính</td>
+<td><strong>Secrets</strong>: DB password, API key</td>
+<td>Cấu hình + cả secret dạng SecureString</td>
+</tr>
+<tr>
+<td>Tự động rotate</td>
+<td><strong>Có, tích hợp sẵn</strong> (đặc biệt RDS/Aurora/Redshift/DocumentDB)</td>
+<td>Không có rotation tích hợp sẵn</td>
+</tr>
+<tr>
+<td>Chi phí</td>
+<td>Trả phí theo secret + API call</td>
+<td>Standard tier miễn phí (giới hạn cơ bản); Advanced trả phí</td>
+</tr>
+<tr>
+<td>Mã hóa</td>
+<td>KMS</td>
+<td>SecureString dùng KMS</td>
+</tr>
+<tr>
+<td>Versioning / hierarchy</td>
+<td>Có</td>
+<td>Có hierarchy dạng path</td>
+</tr>
+<tr>
+<td>Keyword đề</td>
+<td><strong>rotate automatically</strong>, database credentials</td>
+<td>configuration, plain parameter, free</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong> Thấy chữ <strong>rotate</strong> → Secrets Manager, không tranh cãi. Chỉ lưu config/tham số thường, muốn rẻ/miễn phí → Parameter Store.</p>
+<hr />
+<h2>16. KMS vs CloudHSM</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>KMS</th>
+<th>CloudHSM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bản chất</td>
+<td>Dịch vụ quản lý khóa, <strong>shared</strong> hạ tầng do AWS quản</td>
+<td>Cụm HSM <strong>dedicated</strong> riêng cho bạn</td>
+</tr>
+<tr>
+<td>Ai quản lý khóa</td>
+<td>AWS quản hạ tầng, bạn quản key policy</td>
+<td><strong>Bạn toàn quyền</strong> quản khóa trong HSM</td>
+</tr>
+<tr>
+<td>Tích hợp dịch vụ AWS</td>
+<td>Rất rộng (S3, EBS, RDS, Lambda...)</td>
+<td>Hạn chế hơn, thường qua ứng dụng tự tích hợp</td>
+</tr>
+<tr>
+<td>Chuẩn / compliance</td>
+<td>Đáp ứng đa số nhu cầu thông thường</td>
+<td>Khi quy định đòi <strong>FIPS 140-2 Level 3 / dedicated HSM</strong> (kiến thức khái niệm hay ra)</td>
+</tr>
+<tr>
+<td>Vận hành</td>
+<td>Gần như không vận hành</td>
+<td>Tự lo HA cụm HSM, backup khóa</td>
+</tr>
+<tr>
+<td>Audit</td>
+<td>Qua CloudTrail tự nhiên</td>
+<td>Theo cơ chế riêng của HSM/ứng dụng</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quy tắc chọn:</strong>
+- Mặc định mọi bài toán mã hóa trên AWS → <strong>KMS</strong>.
+- Đề nhấn <strong>dedicated, single-tenant HSM, bạn tự kiểm soát hoàn toàn khóa, compliance đặc thù</strong> → <strong>CloudHSM</strong>.</p>
+<hr />
+<h2>Bảng Chốt Cuối — 12 Cặp Dễ Nhầm Nhất</h2>
+<table>
+<thead>
+<tr>
+<th>Cặp dễ nhầm</th>
+<th>Phân biệt 1 câu</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CloudTrail vs Config</td>
+<td>Trail = ai gọi API; Config = resource cấu hình ra sao</td>
+</tr>
+<tr>
+<td>SG vs NACL</td>
+<td>SG stateful + Allow-only; NACL stateless + có Deny</td>
+</tr>
+<tr>
+<td>SQS vs SNS</td>
+<td>SQS giữ tin chờ pull; SNS đẩy tin push</td>
+</tr>
+<tr>
+<td>Multi-AZ vs Read Replica</td>
+<td>Multi-AZ = sống sót; Replica = đọc nhanh hơn</td>
+</tr>
+<tr>
+<td>ALB vs NLB</td>
+<td>ALB đọc HTTP (L7); NLB chuyển TCP/UDP cực nhanh (L4)</td>
+</tr>
+<tr>
+<td>Gateway vs Interface Endpoint</td>
+<td>Gateway chỉ cho S3/DynamoDB và miễn phí; Interface cho phần còn lại, có phí</td>
+</tr>
+<tr>
+<td>Secrets Manager vs Parameter Store</td>
+<td>Cần rotate → Secrets Manager</td>
+</tr>
+<tr>
+<td>KMS vs CloudHSM</td>
+<td>Cần HSM riêng dedicated → CloudHSM, còn lại KMS</td>
+</tr>
+<tr>
+<td>Durability vs Availability</td>
+<td>Durability = không mất dữ liệu; Availability = vào được hệ thống</td>
+</tr>
+<tr>
+<td>Provisioned vs On-Demand</td>
+<td>Đoán được traffic → Provisioned; spike → On-Demand</td>
+</tr>
+<tr>
+<td>Fargate vs EC2 launch type</td>
+<td>Không quản server → Fargate</td>
+</tr>
+<tr>
+<td>Backup&amp;Restore vs Warm Standby</td>
+<td>Chỉ có backup = Backup&Restore; có môi trường thu nhỏ đang chạy = Warm Standby</td>
+</tr>
+</tbody>
+</table></article>
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

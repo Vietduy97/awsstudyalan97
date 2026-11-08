@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 20 — Kiến Trúc Tổng Hợp SAA — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 2 · SAA nâng cao</p>
+  <div class="md-body"><h1>Bài 20 — Kiến Trúc Tổng Hợp SAA</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Ánh xạ được 4 domain của đề SAA-C03 với các pillars của AWS Well-Architected Framework để ôn tập có hệ thống trong tuần cuối.</li>
+<li>Thuộc hai bản kiến trúc mẫu: 3-tier truyền thống và serverless — bộ khung trả lời phần lớn câu hỏi scenario.</li>
+<li>Nắm playbook ra quyết định theo keyword, chiến thuật làm bài 130 phút / 65 câu, và checklist tuần cuối + ngày thi.</li>
+</ul>
+<h2>Lý thuyết chính</h2>
+<h3>1. Thông tin đề thi — thuộc lòng</h3>
+<ul>
+<li><strong>Mã đề:</strong> SAA-C03 — AWS Certified Solutions Architect – Associate.</li>
+<li><strong>Số câu:</strong> 65 câu, trong đó <strong>50 câu tính điểm + 15 câu không tính điểm</strong> (thử nghiệm của AWS, <strong>không phân biệt được</strong> câu nào là câu nào — nên phải làm nghiêm túc cả 65 câu).</li>
+<li><strong>Thời gian:</strong> <strong>130 phút</strong> → trung bình khoảng <strong>2 phút/câu</strong>.</li>
+<li><strong>Điểm đạt:</strong> <strong>720/1000</strong>.</li>
+<li><strong>Lệ phí:</strong> <strong>$150</strong>.</li>
+<li><strong>Ngôn ngữ:</strong> <strong>KHÔNG có bản tiếng Việt</strong> — thi hoàn toàn bằng <strong>tiếng Anh</strong>. Đây là lý do toàn bộ quá trình học phải drill keyword tiếng Anh song song với lý thuyết tiếng Việt.</li>
+</ul>
+<h3>2. Ánh xạ 4 domain ↔ Well-Architected pillars</h3>
+<table>
+<thead>
+<tr>
+<th>Domain đề thi</th>
+<th>Trọng số</th>
+<th>Pillars liên quan nhất</th>
+<th>Nội dung trọng tâm</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Design Secure Architectures</strong></td>
+<td><strong>30%</strong></td>
+<td>Security</td>
+<td>IAM least privilege, KMS encryption, VPC/private subnet, Security Group, WAF, Secrets Manager</td>
+</tr>
+<tr>
+<td><strong>Design Resilient Architectures</strong></td>
+<td><strong>26%</strong></td>
+<td>Reliability</td>
+<td>Multi-AZ, Multi-Region, ASG, ELB, DR (RPO/RTO), decoupling bằng SQS</td>
+</tr>
+<tr>
+<td><strong>Design High-Performing Architectures</strong></td>
+<td><strong>24%</strong></td>
+<td>Performance Efficiency</td>
+<td>Cache (ElastiCache, CloudFront), read replica, chọn đúng compute/storage, DynamoDB</td>
+</tr>
+<tr>
+<td><strong>Design Cost-Optimized Architectures</strong></td>
+<td><strong>20%</strong></td>
+<td>Cost Optimization</td>
+<td>Savings Plans, Spot, S3 Lifecycle, rightsize, xóa tài nguyên mồ côi</td>
+</tr>
+</tbody>
+</table>
+<p>Hai pillars còn lại của Well-Architected — <strong>Operational Excellence</strong> và <strong>Sustainability</strong> — không có domain riêng nhưng vẫn xuất hiện lồng ghép (CloudWatch, CloudFormation/IaC...).</p>
+<p>Cách dùng bảng này khi ôn: domain <strong>Secure 30% là lớn nhất</strong> — đừng để mất điểm ở IAM, encryption, network security. Nhưng cả 4 domain đều phải qua mức tối thiểu an toàn; đề không cho phép "bỏ hẳn" một domain.</p>
+<h3>3. Kiến trúc mẫu 1 — 3-tier chuẩn (bản EC2/ECS)</h3>
+<p>Đây là "bộ khung quốc dân" của đề SAA. Thuộc luồng đi của một request:</p>
+<pre><code>User → Route 53 (DNS) → CloudFront (CDN, cache + HTTPS)
+     → Application Load Balancer (public subnet, nhiều AZ)
+     → Auto Scaling Group EC2 / ECS Service (private subnet, nhiều AZ)
+     → RDS Multi-AZ (private subnet) + ElastiCache (cache)
+     → S3 (static assets / backups)
+</code></pre>
+<p>Vai trò từng tầng và từ khóa gắn với nó:</p>
+<ul>
+<li><strong>Route 53:</strong> DNS, routing policies (Latency-based, Failover, Weighted...).</li>
+<li><strong>CloudFront:</strong> cache nội dung tĩnh ở edge, giảm latency + giảm tải origin, hỗ trợ HTTPS/WAF.</li>
+<li><strong>ALB:</strong> cân bằng tải tầng application (HTTP/HTTPS), path/host-based routing, target group + health check. Đặt ở <strong>public subnet</strong>.</li>
+<li><strong>ASG EC2 / ECS Service:</strong> tầng ứng dụng ở <strong>private subnet</strong>, tự scale theo tải, trải nhiều AZ.</li>
+<li><strong>RDS Multi-AZ:</strong> database quan hệ với standby ở AZ khác, <strong>failover tự động</strong> (đây là HA, không phải tăng khả năng đọc — muốn scale read thì Read Replica).</li>
+<li><strong>ElastiCache (Redis/Memcached):</strong> cache dữ liệu đọc nhiều để <strong>giảm tải database</strong> và giảm latency. Thấy "read-heavy, giảm tải RDS" → ElastiCache hoặc DAX (cho DynamoDB).</li>
+</ul>
+<h3>4. Kiến trúc mẫu 2 — Serverless</h3>
+<pre><code>User → Route 53 → CloudFront → API Gateway → Lambda → DynamoDB
+                                    ↘ S3 (static hosting / file storage)
+</code></pre>
+<ul>
+<li><strong>API Gateway:</strong> cửa ngõ API — xác thực (Cognito/API key/IAM), throttling, request validation.</li>
+<li><strong>Lambda:</strong> xử lý logic theo request/event, tự scale, trả tiền theo lần chạy — least operational overhead.</li>
+<li><strong>DynamoDB:</strong> NoSQL serverless, scale gần như không giới hạn, on-demand capacity cho workload khó đoán.</li>
+<li>Bản serverless thắng ở: <strong>operational overhead thấp nhất, chi phí theo mức dùng thật, scale tự động</strong>. Đánh đổi: giới hạn Lambda (15 phút), cold start, ít kiểm soát hạ tầng hơn EC2.</li>
+</ul>
+<p>Khi scenario nói team nhỏ, traffic khó đoán, muốn tối thiểu vận hành → nghiêng về bản serverless. Khi scenario nói workload ổn định lớn, phần mềm legacy, yêu cầu kiểm soát OS → nghiêng về bản 3-tier EC2/ECS.</p>
+<h3>5. Playbook ra quyết định theo keyword — bảng vàng ngày thi</h3>
+<p>Đọc câu hỏi, bắt keyword, đối chiếu bảng này trước khi đọc kỹ 4 đáp án:</p>
+<table>
+<thead>
+<tr>
+<th>Keyword trong đề</th>
+<th>Hướng đáp án ưu tiên</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>"least operational overhead"</strong></td>
+<td>Managed / serverless: Fargate, Lambda, RDS (thay vì tự cài DB trên EC2), DynamoDB, App Runner</td>
+</tr>
+<tr>
+<td><strong>"most cost-effective"</strong></td>
+<td>Spot (workload chịu gián đoạn), Savings Plans (ổn định), S3 Lifecycle / Intelligent-Tiering, gp3, Gateway Endpoint, rightsize</td>
+</tr>
+<tr>
+<td><strong>"highest availability" / "fault tolerant"</strong></td>
+<td>Multi-AZ tối thiểu; yêu cầu cao hơn → Multi-Region, ASG nhiều AZ, ALB, Route 53 Failover</td>
+</tr>
+<tr>
+<td><strong>"secure" / "least privilege"</strong></td>
+<td>IAM Policy/Role theo least privilege, KMS encryption at rest, TLS in transit, private subnets, Secrets Manager (không hardcode credentials), Security Group hạn chế nhất</td>
+</tr>
+<tr>
+<td>"scalable / spikes / unpredictable traffic"</td>
+<td>ASG, Lambda, DynamoDB on-demand, SQS để đệm tải</td>
+</tr>
+<tr>
+<td>"decouple / loose coupling"</td>
+<td>SQS (queue), SNS (pub/sub), EventBridge</td>
+</tr>
+<tr>
+<td>"real-time / streaming"</td>
+<td>Kinesis Data Streams / MSK</td>
+</tr>
+<tr>
+<td>"reduce latency globally"</td>
+<td>CloudFront, Global Accelerator, Route 53 Latency-based routing</td>
+</tr>
+<tr>
+<td>"hybrid / on-premises connection"</td>
+<td>VPN (nhanh, rẻ) vs Direct Connect (ổn định, riêng, lâu triển khai)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Nguyên tắc dùng playbook:</strong> keyword cho bạn <em>hướng</em>, nhưng phải kiểm tra lại điều kiện phụ trong scenario (ví dụ: "cost-effective" nhưng workload "cannot be interrupted" thì loại Spot ngay).</p>
+<h2>Ví dụ đời thường</h2>
+<p>Vào phòng thi giống như vào bếp thi nấu ăn với đồng hồ đếm ngược:</p>
+<ul>
+<li><strong>Hai bản kiến trúc mẫu</strong> là hai "thực đơn tủ" bạn đã nấu thuộc lòng — khách (scenario) gọi món biến tấu nào, bạn cũng bắt đầu từ khung có sẵn thay vì nghĩ từ số 0.</li>
+<li><strong>Playbook keyword</strong> giống nhìn phiếu order: chữ "không cay" (least privilege — hạn chế tối đa), "tiết kiệm nhất" (cost-effective), "nhanh nhất" (highest availability/latency) quyết định cách nêm nếm trước khi bạn đọc hết ghi chú dài của khách.</li>
+<li><strong>Chiến thuật 2 phút/câu</strong> giống chia thời gian cho từng món: món nào khó (câu dài, lắt léo) thì đánh dấu, làm món dễ trước, cuối giờ quay lại — không đầu bếp nào đứng chết 15 phút ở một món trong khi 10 phiếu order khác đang chờ.</li>
+</ul>
+<h2>Phân biệt dễ nhầm</h2>
+<ul>
+<li><strong>Managed vs Serverless:</strong> RDS là managed (AWS lo patching/backup) nhưng không gọi là serverless theo nghĩa trả tiền theo mức dùng như Aurora Serverless/DynamoDB. Đề hỏi "least operational overhead" thì cả hai nhóm đều là ứng viên; đề hỏi đúng chữ "serverless" hãy ưu tiên Lambda/Fargate/DynamoDB/Aurora Serverless.</li>
+<li><strong>Multi-AZ vs Multi-Region:</strong> Multi-AZ = khả dụng cao trong 1 Region, là lựa chọn mặc định cho "high availability". Multi-Region chỉ khi đề yêu cầu DR cấp Region hoặc RTO gần 0 / latency toàn cầu. Đừng vung Multi-Region cho mọi câu "availability".</li>
+<li><strong>Caching ở đâu:</strong> Nội dung tĩnh/dùng chung toàn cầu → CloudFront. Dữ liệu query lặp lại từ database → ElastiCache. Bảng DynamoDB cần cache microsecond → DAX. Amazon CloudFront, ElastiCache và DAX không thay thế nhau.</li>
+<li><strong>SQS vs SNS:</strong> Cần <strong>hàng đợi để đệm và xử lý lần lượt</strong> (decouple + buffer) → SQS. Cần <strong>phát một sự kiện tới nhiều nơi cùng lúc</strong> (fan-out/pub-sub) → SNS. Fan-out chuẩn: SNS → nhiều SQS queue.</li>
+<li><strong>Security Group vs NACL:</strong> Security Group là stateful, ở tầng instance/ENI — đáp án mặc định cho kiểm soát truy cập. NACL là stateless, ở tầng subnet, dùng khi đề nhấn mạnh deny rule hoặc tầng subnet.</li>
+</ul>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li><strong>Bẫy đáp án "mạnh nhất":</strong> Nhiều đáp án sai được viết rất hoành tráng (Multi-Region Active-Active, instance lớn nhất) nhưng vượt yêu cầu và đội chi phí. Đề SAA chấm đáp án <strong>đủ yêu cầu + tối ưu theo tiêu chí được hỏi</strong>, không chấm độ hoành tráng.</li>
+<li><strong>Bẫy tự quản thay vì managed:</strong> Đáp án "tự cài database trên EC2", "tự viết script backup" thường sai khi đã có dịch vụ managed tương ứng (RDS, AWS Backup) — trừ khi scenario có yêu cầu đặc biệt ép phải tự quản.</li>
+<li><strong>Bẫy đọc scenario trước, câu hỏi sau:</strong> Đọc hết đoạn scenario dài rồi mới biết đề hỏi gì khiến bạn phải đọc lại — mất gấp đôi thời gian. Luôn đọc <strong>câu hỏi (thường là câu cuối) trước</strong>, gạch keyword, rồi mới đọc scenario để săn chi tiết liên quan.</li>
+<li><strong>Bẫy 15 câu không tính điểm:</strong> Không có cách nào nhận biết chúng, và chúng trông y như câu thật. Đừng cố đoán, đừng hoảng nếu gặp vài câu lạ — cứ làm hết sức bình đẳng cả 65 câu.</li>
+<li><strong>Bẫy đổi đáp án khi review:</strong> Khi quay lại câu đã flag, chỉ đổi đáp án khi tìm thấy <strong>lý do cụ thể</strong> trong scenario mà lần đầu đọc sót. Đổi vì "cảm giác" ở phút cuối thường làm mất điểm.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<ul>
+<li>Đề SAA-C03: 65 câu (50 tính điểm + 15 không tính điểm, không phân biệt được), 130 phút, đạt 720/1000, $150, thi bằng tiếng Anh.</li>
+<li>Trọng số domain: Secure 30% &gt; Resilient 26% &gt; High-Performing 24% &gt; Cost-Optimized 20% — ánh xạ lần lượt tới Security, Reliability, Performance Efficiency, Cost Optimization pillars.</li>
+<li>Thuộc 2 khung kiến trúc: 3-tier (Route 53 → CloudFront → ALB → ASG/ECS → RDS Multi-AZ + ElastiCache) và serverless (CloudFront → API Gateway → Lambda → DynamoDB).</li>
+<li>Playbook keyword: least operational overhead → managed/serverless; most cost-effective → Spot/SP/Lifecycle; highest availability → Multi-AZ/Multi-Region; secure → least privilege + KMS + private subnet.</li>
+<li>Chiến thuật: ~2 phút/câu, đọc câu hỏi trước, loại 2 đáp án sai trước, flag-and-return với câu khó, không bỏ trống câu nào.</li>
+</ul>
+<h2>Phụ lục — Chiến thuật làm bài &amp; Checklist cuối</h2>
+<h3>Chiến thuật trong phòng thi (130 phút / 65 câu ≈ 2 phút/câu)</h3>
+<ol>
+<li><strong>Đọc câu hỏi trước:</strong> Với câu scenario dài, đọc câu cuối (câu hỏi thật) + gạch keyword ("least operational overhead", "most cost-effective"...) trước, sau đó mới đọc scenario để tìm chi tiết quyết định.</li>
+<li><strong>Loại 2 đáp án sai trước:</strong> Hầu hết câu hỏi có 2 đáp án sai rõ ràng (sai dịch vụ, sai phạm vi AZ/Region, vi phạm điều kiện phụ). Loại xong, bạn chỉ còn cân 50/50 giữa 2 đáp án đúng hướng — lúc này mới đọc lại scenario tìm chi tiết phân thắng bại.</li>
+<li><strong>Flag-and-return:</strong> Câu nào quá 2 phút chưa ra → chọn tạm đáp án tốt nhất, <strong>flag</strong> lại, đi tiếp. Quay lại xử lý khi đã xong lượt một. Không bao giờ để trống — đề không trừ điểm câu sai.</li>
+<li><strong>Quản lý nhịp:</strong> Mục tiêu tham chiếu: câu 20 quanh phút 40, câu 40 quanh phút 80, kết thúc lượt một còn ít nhất 10–15 phút để review các câu đã flag.</li>
+<li><strong>Chỉ đổi đáp án khi có lý do cụ thể</strong> tìm thấy trong scenario, không đổi theo cảm giác.</li>
+</ol>
+<h3>Checklist tuần cuối</h3>
+<ul>
+<li>[ ] Ôn theo domain yếu nhất trước (dựa trên điểm các đề practice gần nhất), không ôn dàn đều.</li>
+<li>[ ] Làm ít nhất 2 đề practice full 65 câu bấm giờ 130 phút, review <strong>cả câu đúng lẫn câu sai</strong> — đọc giải thích vì sao đáp án kia sai.</li>
+<li>[ ] Học thuộc: bảng ánh xạ domain ↔ pillar, playbook keyword ở trên, bảng 4 chiến lược DR (Bài 18), bảng 5 công cụ chi phí (Bài 19).</li>
+<li>[ ] Rà lại các cặp phân biệt dễ nhầm của cả khóa: RPO/RTO, Multi-AZ/Read Replica, SQS/SNS, Gateway/Interface Endpoint, Compute SP/EC2 Instance SP.</li>
+<li>[ ] Hai ngày cuối: giảm cường độ, chỉ đọc tóm tắt 5 dòng của mỗi bài + lướt lại các câu quiz đã sai.</li>
+<li>[ ] Đêm trước ngày thi: ngủ đủ giấc — điểm số mất vì mệt mỏi lớn hơn điểm kiếm thêm được từ một đêm cày cuốc.</li>
+</ul>
+<h3>Checklist ngày thi</h3>
+<ul>
+<li>[ ] Mang giấy tờ tùy thân đúng quy định của trung tâm thi / chuẩn bị phòng yên tĩnh nếu thi online (OnVUE).</li>
+<li>[ ] Đến sớm (hoặc đăng nhập sớm) 30 phút để làm thủ tục check-in.</li>
+<li>[ ] Nhớ: đề <strong>bằng tiếng Anh hoàn toàn, không có bản tiếng Việt</strong> — giữ nhịp đọc keyword, đừng dịch từng chữ.</li>
+<li>[ ] Trong phòng thi: hít thở, làm theo nhịp 2 phút/câu, flag câu khó, không hoảng vì 15 câu thử nghiệm không tính điểm lẫn trong đề.</li>
+<li>[ ] Kết quả hiển thị ngay sau khi nộp bài (đạt/không đạt); báo cáo điểm chi tiết theo domain gửi sau — dùng nó để biết domain nào cần bổ sung nếu phải thi lại.</li>
+</ul></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-19.html">← Bài 19 — Tối Ưu Chi Phí</a><span class="spacer"></span></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-20"; window.QUIZ_DATA = [{"n": 1, "text": "A company runs a web application on EC2 instances behind an Application Load Balancer, with an Amazon RDS MySQL database. Read traffic is growing rapidly and database CPU is consistently high because the same product catalog queries are executed repeatedly. Which solution will MOST effectively reduce the load on the database with the least change to the architecture?", "options": {"A": "Migrate the database to Amazon DynamoDB.", "B": "Add an Amazon ElastiCache cluster in front of the RDS database to cache frequent query results.", "C": "Convert the RDS instance to a larger instance class.", "D": "Enable Multi-AZ on the RDS database to share read traffic with the standby."}, "answer": "B", "explanation": "Pattern kinh điển: query lặp lại + database quá tải vì read → thêm **cache ElastiCache** phía trước RDS. C (tăng instance) chỉ xử lý triệu chứng, tốn kém và không giảm số query trùng lặp. D sai kiến thức cốt lõi: RDS Multi-AZ standby **không nhận read traffic** — Multi-AZ là cho failover/HA. A thay đổi kiến trúc quá lớn, không phải \"least change\"."}, {"n": 2, "text": "A solutions architect must design a solution for a new API with unpredictable traffic. The company wants the least operational overhead, does not want to manage servers, and wants to pay only for the requests processed. Which architecture best meets these requirements?", "options": {"A": "Amazon EC2 instances in an Auto Scaling group behind an Application Load Balancer, with a self-managed MySQL database on EC2.", "B": "Amazon CloudFront, Amazon API Gateway, AWS Lambda, and Amazon DynamoDB on-demand.", "C": "Amazon ECS with the EC2 launch type and Amazon RDS Multi-AZ.", "D": "A single large EC2 instance running the API and the database together."}, "answer": "B", "explanation": "Ba keyword cùng chỉ về serverless: \"unpredictable traffic\" + \"least operational overhead\" + \"pay only for requests\" → API Gateway + Lambda + DynamoDB on-demand, CloudFront ở phía trước. A và C đều phải quản lý EC2/cluster. D là kiến trúc tệ nhất: một instance duy nhất chứa cả API lẫn database, không scale, không HA."}, {"n": 3, "text": "A company's application is deployed in a single Availability Zone and experiences outages whenever that Availability Zone has an issue. The company requires the highest availability for its relational database within the same AWS Region, with automatic failover. Which solution meets these requirements?", "options": {"A": "Take hourly RDS snapshots and copy them to another Region.", "B": "Deploy the RDS database with Multi-AZ and run the application tier across multiple Availability Zones.", "C": "Create RDS Read Replicas in other Regions.", "D": "Store the database on an EBS volume with snapshots in Amazon S3."}, "answer": "B", "explanation": "Yêu cầu là **highest availability trong cùng Region + automatic failover** cho RDS → **Multi-AZ** là đáp án chuẩn, đồng thời tầng ứng dụng cũng phải trải nhiều AZ. A là cơ chế DR thủ công, phục hồi chậm, không tự động. C sai vì Read Replica phục vụ scale read và có thể promote thủ công, không phải cơ chế failover tự động trong Region như Multi-AZ. D không phải giải pháp HA cho database."}, {"n": 4, "text": "A company needs to store application secrets such as database passwords, rotate them automatically on a schedule, and ensure application code never contains hardcoded credentials. Which solution is MOST appropriate and secure?", "options": {"A": "Store the passwords in an encrypted Amazon S3 bucket and embed the bucket name in the code.", "B": "Store the passwords in AWS Secrets Manager with automatic rotation, and grant the application an IAM role with least-privilege access.", "C": "Store the passwords in environment variables in the EC2 user data script.", "D": "Store the passwords in a private Git repository accessible to the application."}, "answer": "B", "explanation": "Secrets Manager sinh ra đúng cho bài toán này: lưu secret tập trung, **tự động rotate**, tích hợp IAM để cấp quyền theo **least privilege** qua IAM Role — code không chứa credentials. A, C, D đều để lộ secret qua code/script/repo ở các mức khác nhau và không có rotation tự động chuẩn như Secrets Manager. Đây là mẫu câu thuộc domain Secure 30% — domain nặng nhất đề thi."}, {"n": 5, "text": "A batch workload runs on EC2 instances every night. The workload is fault-tolerant, can be interrupted, and can resume from checkpoints. The company wants the MOST cost-effective compute option for this workload. Which option should the solutions architect choose?", "options": {"A": "On-Demand Instances", "B": "Dedicated Instances", "C": "Spot Instances", "D": "EC2 Instance Savings Plans"}, "answer": "C", "explanation": "\"Fault-tolerant + can be interrupted + resume from checkpoints\" + \"most cost-effective\" là chân dung của **Spot Instances**. Savings Plans (D) dành cho workload ổn định liên tục, không phải batch ngắn mỗi đêm. On-Demand (A) đúng về kỹ thuật nhưng không rẻ bằng Spot. Dedicated Instances (B) là lựa chọn đắt, phục vụ yêu cầu isolation/compliance chứ không phải tối ưu chi phí."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 06 — EBS & EFS: Ổ đĩa cho EC2 và đĩa dùng chung — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 06 — EBS &amp; EFS: Ổ đĩa cho EC2 và đĩa dùng chung</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Phân biệt rạch ròi 3 loại lưu trữ hay bị trộn lẫn nhất trong đề SAA-C03: <code>S3</code>, <code>EBS</code>, <code>EFS</code>.</li>
+<li>Nhớ được các loại <code>EBS volume</code>: <code>gp3/gp2</code>, <code>io1/io2</code>, <code>st1</code>, <code>sc1</code> và chọn đúng theo <code>IOPS</code> / <code>throughput</code>.</li>
+<li>Hiểu <code>EBS Snapshot</code>, <code>EBS encryption</code> và vì sao <code>Instance Store</code> mất dữ liệu khi <code>stop/terminate</code>.</li>
+<li>Biết khi nào đề đang mô tả <code>EFS</code> — từ khóa <code>NFS</code>, nhiều EC2 dùng chung, nhiều AZ.</li>
+</ul>
+<h2>Lý thuyết chính (tiếng Việt dễ hiểu, giữ nguyên thuật ngữ English)</h2>
+<h3>Quy tắc ghi nhớ của cả bài</h3>
+<blockquote>
+<p><strong>S3 = file cho internet/app, EBS = đĩa của 1 server, EFS = đĩa dùng chung nhiều server.</strong></p>
+</blockquote>
+<p>Nếu thuộc lòng câu này, bạn đã loại được ít nhất 1-2 đáp án sai trong rất nhiều câu hỏi.</p>
+<h3>1. EBS — Elastic Block Store</h3>
+<p>EBS là ổ đĩa mạng (<code>block storage</code>) gắn vào một máy chủ ảo <code>EC2 instance</code>. Hãy nghĩ như ổ SSD/HDD cắm vào 1 máy tính. Instance tắt thì dữ liệu trên EBS vẫn còn (trừ khi bạn cố tình đặt xóa root volume khi terminate).</p>
+<p>Nguyên tắc cơ bản: <strong>1 EBS volume chỉ gắn vào 1 EC2 tại một thời điểm</strong>. Ngoại lệ duy nhất hay thi: dòng <code>io1/io2</code> hỗ trợ <code>Multi-Attach</code> nhưng giới hạn — chỉ trong cùng AZ, số instance giới hạn. Ngoài ngoại lệ đó, cứ thấy "nhiều server cùng ghi vào 1 ổ" là EBS sai.</p>
+<p>EBS volume bị khóa trong 1 <code>Availability Zone (AZ)</code>. Muốn chuyển AZ khác phải đi qua Snapshot.</p>
+<h3>2. Các loại EBS volume — phần hay thi nhất bài này</h3>
+<ul>
+<li><strong>gp3 / gp2 — General Purpose SSD:</strong> ổ SSD đa dụng, cân bằng giá/hiệu năng, dùng cho hầu hết bài toán: ổ boot, web server, dev/test. <strong>gp3 baseline: 3,000 IOPS và 125 MB/s throughput</strong> — dù volume nhỏ cũng được mức nền này, và tăng IOPS/throughput độc lập với dung lượng. gp3 là đời mới, rẻ và tốt hơn gp2, đề thi hiện nay ưu tiên gp3.</li>
+<li><strong>io1 / io2 — Provisioned IOPS SSD:</strong> SSD hiệu năng cao, bạn trả tiền để mua IOPS cam kết. Dùng cho database lớn, hệ thống cần IOPS rất cao và ổn định. Đây là nhóm duy nhất có Multi-Attach (giới hạn).</li>
+<li><strong>st1 — Throughput Optimized HDD:</strong> ổ HDD cho <code>big data</code>, data warehouse, log processing — cần đọc/ghi tuần tự lượng lớn (<code>throughput</code> cao) chứ không cần IOPS cao. Không dùng làm ổ boot.</li>
+<li><strong>sc1 — Cold HDD:</strong> HDD rẻ nhất, cho dữ liệu rất ít truy cập kiểu file archive trên block storage. Không dùng làm ổ boot.</li>
+</ul>
+<p>Mẹo phân biệt: cần <strong>IOPS</strong> (nhiều thao tác nhỏ, database) → nhìn nhóm SSD, đặc biệt io1/io2. Cần <strong>throughput</strong> (ít thao tác nhưng mỗi thao tác rất to, big data) → st1.</p>
+<h3>3. EBS Snapshot — sao lưu</h3>
+<p><code>Snapshot</code> là bản sao lưu của EBS volume, lưu lên S3 (do AWS quản lý, bạn không thấy bucket đó). Đặc điểm:
+- <strong>Incremental (tăng dần):</strong> snapshot đầu sao toàn bộ, các lần sau chỉ sao phần block thay đổi — tiết kiệm dung lượng và tiền.
+- Từ snapshot bạn tạo được volume mới, <strong>copy snapshot qua AZ khác hoặc Region khác</strong> — đây là cách di chuyển dữ liệu EBS qua Region và là nền tảng cho backup / disaster recovery của EC2.
+- Snapshot có thể dùng để tạo AMI hoặc khôi phục volume khi hỏng.</p>
+<h3>4. EBS Encryption</h3>
+<p>Volume EBS có thể mã hóa (<code>encryption at rest</code>). Volume, snapshot tạo từ volume đó và dữ liệu truyền giữa EC2 và EBS đều được mã hóa. Muốn mã hóa một volume cũ chưa mã hóa: tạo snapshot → copy snapshot có bật encryption → tạo volume mới từ snapshot đã mã hóa đó. Không có công tắc bật encryption trực tiếp trên volume đang chạy.</p>
+<h3>5. Instance Store — đĩa vật lý tạm, cực nhanh nhưng mất là hết</h3>
+<p><code>Instance Store</code> là ổ đĩa vật lý gắn trực tiếp vào máy chủ vật lý chứa EC2 instance của bạn. Tốc độ rất nhanh vì ở ngay trong máy.</p>
+<p>Đổi lại: nó là <code>ephemeral storage</code> (lưu trữ tạm). <strong>Instance bị stop hoặc terminate thì dữ liệu trên Instance Store mất sạch.</strong> Reboot thì thường vẫn còn. Chỉ dùng cho cache, buffer, dữ liệu tạm — thứ mất cũng tạo lại được, tuyệt đối không để database hay file quan trọng ở đây.</p>
+<h3>6. EFS — Elastic File System</h3>
+<p>EFS là hệ thống file dùng chung theo giao thức <code>NFS</code>, hoạt động ở cấp <code>Region</code> và trải nhiều AZ.</p>
+<ul>
+<li><strong>Nhiều EC2 instance gắn (mount) vào cùng 1 EFS đồng thời</strong> và cùng đọc/ghi — đây là khác biệt sống còn so với EBS.</li>
+<li>Tự động co giãn dung lượng theo lượng file, bạn không phải cấp phát trước như EBS.</li>
+<li>Có <code>storage class</code> IA: <strong>EFS Infrequent Access (EFS IA)</strong> kết hợp <code>lifecycle</code> — file ít truy cập tự chuyển sang lớp rẻ hơn, giống ý tưởng Lifecycle của S3.</li>
+<li>Chỉ dùng cho Linux (vì NFS). Đề nhắc Windows file share dùng chung thì không phải EFS.</li>
+</ul>
+<p>Use case kinh điển: dàn web server nhiều instance cùng đọc/ghi một kho file chung (ảnh upload, file người dùng), WordPress dùng chung thư mục nội dung.</p>
+<h2>Ví dụ đời thường</h2>
+<p>Hãy tưởng tượng bạn mở một quán cà phê có nhiều chi nhánh trong cùng thành phố.</p>
+<p><strong>EBS</strong> như tủ lạnh riêng trong bếp của 1 chi nhánh. Chỉ đầu bếp của chi nhánh đó mở được tủ đó. Chi nhánh đóng cửa nghỉ (stop) thì tủ lạnh vẫn cắm điện, đồ vẫn còn — đó là EBS. Nhưng tủ hỏng chi nhánh khác không dùng ké được.</p>
+<p><strong>Instance Store</strong> như thớt và rổ đựng nguyên liệu sơ chế để ngay trên bàn bếp. Dùng rất nhanh tay, nhưng quán đóng cửa dọn dẹp (terminate) là đổ bỏ hết. Không ai cất hành tỏi đã thái vào đó để qua tuần.</p>
+<p><strong>EFS</strong> như kho nguyên liệu trung tâm của cả chuỗi. Mọi chi nhánh cùng vào lấy cà phê, sữa, ly giấy từ một kho duy nhất. Thêm chi nhánh mới là nó vào dùng chung ngay, không phải mua kho riêng — đó chính là cảnh nhiều EC2 cùng mount EFS.</p>
+<p><strong>S3</strong> (nhắc lại bài trước) thì như bạn chụp ảnh món ăn và đăng lên fanpage cho cả internet xem — không phải tủ lạnh, cũng không phải kho bếp.</p>
+<h2>Phân biệt dễ nhầm</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>EBS</th>
+<th>EFS</th>
+<th>Instance Store</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gắn vào</td>
+<td>1 EC2 (trừ io2 Multi-Attach giới hạn)</td>
+<td>Nhiều EC2 đồng thời</td>
+<td>1 EC2 (đĩa vật lý trong máy)</td>
+</tr>
+<tr>
+<td>Phạm vi</td>
+<td>1 AZ</td>
+<td>Cả Region, nhiều AZ</td>
+<td>1 instance</td>
+</tr>
+<tr>
+<td>Giao thức / kiểu</td>
+<td>Block storage</td>
+<td>File system — NFS</td>
+<td>Block storage vật lý</td>
+</tr>
+<tr>
+<td>Stop instance</td>
+<td>Dữ liệu còn</td>
+<td>Dữ liệu còn (độc lập với EC2)</td>
+<td><strong>Mất dữ liệu</strong></td>
+</tr>
+<tr>
+<td>Dùng cho</td>
+<td>Ổ đĩa server, database nhỏ</td>
+<td>File dùng chung nhiều server</td>
+<td>Cache / dữ liệu tạm</td>
+</tr>
+</tbody>
+</table>
+<p>Phân biệt thêm trong nhóm EBS:
+- <code>gp3</code> vs <code>io2</code>: gp3 đủ cho 90% trường hợp, giá tốt. io2 khi cần IOPS cam kết rất cao, ổn định cho database quan trọng.
+- <code>st1</code> vs <code>sc1</code>: cùng là HDD, st1 nhanh hơn cho big data throughput, sc1 rẻ nhất cho dữ liệu lạnh nhất.
+- <code>IOPS</code> vs <code>throughput</code>: IOPS = số thao tác đọc/ghi mỗi giây. Throughput = lượng dữ liệu MB/s. Database cần IOPS, big data/log cần throughput.</p>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li>Đề viết "multiple EC2 instances must access the same file system concurrently" + "NFS" → đáp án là <strong>EFS</strong>, không bao giờ là EBS thường.</li>
+<li>Thấy <code>io2 Multi-Attach</code> là ngoại lệ có giới hạn (cùng AZ) — đừng vì ngoại lệ này mà chọn EBS cho bài toán file share nhiều AZ.</li>
+<li>Câu hỏi về dữ liệu biến mất sau khi stop instance → thủ phạm là <strong>Instance Store</strong>, không phải EBS.</li>
+<li>Cần chuyển EBS volume sang AZ/Region khác → phải qua <strong>Snapshot</strong> (copy snapshot rồi tạo volume mới), không kéo trực tiếp volume qua được.</li>
+<li>Database cần IOPS cực cao và ổn định → <code>io1/io2</code>, không phải gp3. Ngược lại, web server thông thường chọn io2 là lãng phí tiền, đề Cost sẽ chấm sai.</li>
+<li>Chỉ nhớ con số này là đủ cho gp3: <strong>3,000 IOPS + 125 MB/s baseline</strong>. Đề hay dùng con số này làm keyword nhận diện.</li>
+<li>EFS là cho Linux qua NFS. Hệ điều hành và giao thức là gợi ý điểm trong đề.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<p>EBS là ổ đĩa block storage của 1 EC2 trong 1 AZ, snapshot sao lưu tăng dần và copy được qua Region/AZ.
+gp3 là SSD đa dụng (baseline 3,000 IOPS, 125 MB/s), io1/io2 cho IOPS cam kết cao, st1/sc1 là HDD cho throughput và dữ liệu lạnh.
+Instance Store nhanh nhưng là đĩa tạm — stop/terminate là mất dữ liệu.
+EFS là file system NFS dùng chung cho nhiều EC2 đồng thời trên cả Region, có lớp IA + lifecycle.
+Nhớ: S3 cho internet/app, EBS cho 1 server, EFS cho nhiều server dùng chung.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-05.html">← Bài 05 — S3: Lưu trữ đối tượng (Object Storage)</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-07.html">Bài 07 — RDS: Cơ sở dữ liệu quan hệ được quản lý →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-06"; window.QUIZ_DATA = [{"n": 1, "text": "A web application runs on multiple EC2 instances in different Availability Zones. All instances must read and write to the same shared file system at the same time using the NFS protocol. Which storage service should be used?", "options": {"A": "Amazon EBS gp3", "B": "EC2 Instance Store", "C": "Amazon EFS", "D": "Amazon S3 Glacier Deep Archive"}, "answer": "C", "explanation": "Từ khóa quyết định là \"multiple instances + same file system + concurrently + NFS\". Đó là mô tả textbook của EFS. EBS thường chỉ gắn 1 instance, Instance Store càng không dùng chung được, Glacier là archive của S3."}, {"n": 2, "text": "A database workload requires sustained high IOPS with consistent performance and the company is willing to pay for provisioned performance. Which EBS volume type is most appropriate?", "options": {"A": "sc1 Cold HDD", "B": "st1 Throughput Optimized HDD", "C": "gp3 General Purpose SSD with default settings only", "D": "io2 Provisioned IOPS SSD"}, "answer": "D", "explanation": "Cần IOPS cao, ổn định, chấp nhận trả tiền cho hiệu năng cam kết (`provisioned`) → io1/io2. st1/sc1 là HDD cho throughput/dữ liệu lạnh, không cho IOPS cao. gp3 tốt cho đa dụng (baseline 3,000 IOPS) nhưng không phải lựa chọn khi đề nhấn mạnh provisioned IOPS cho database lớn."}, {"n": 3, "text": "An EC2 instance was stopped for maintenance. After starting it again, the team found that data on one volume had disappeared, while data on the root volume remained intact. Which storage most likely lost the data?", "options": {"A": "Amazon EBS", "B": "EC2 Instance Store", "C": "Amazon EFS", "D": "EBS Snapshot stored in S3"}, "answer": "B", "explanation": "Chỉ Instance Store mới mất dữ liệu khi instance stop/terminate vì đó là đĩa vật lý tạm (`ephemeral`). EBS và EFS đều độc lập với vòng đời instance nên dữ liệu vẫn còn."}, {"n": 4, "text": "A company needs to move an EBS volume's data from `us-east-1` to `eu-west-1` for disaster recovery. What is the correct approach?", "options": {"A": "Directly attach the volume to an instance in eu-west-1", "B": "Create a snapshot, copy the snapshot to eu-west-1, then create a new volume from the copied snapshot", "C": "Enable EFS lifecycle on the volume", "D": "Convert the volume to S3 One Zone-IA"}, "answer": "B", "explanation": "EBS volume bị khóa trong 1 AZ, không attach trực tiếp qua Region được. Cách chuẩn: tạo Snapshot → copy snapshot sang Region đích → tạo volume mới từ snapshot đã copy."}, {"n": 5, "text": "A data analytics job processes very large files sequentially and needs high throughput at the lowest cost. IOPS is not a concern, and the volume will not be used as a boot volume. Which EBS type fits best?", "options": {"A": "io1 Provisioned IOPS SSD", "B": "st1 Throughput Optimized HDD", "C": "io2 Block Express", "D": "Instance Store"}, "answer": "B", "explanation": "File lớn, đọc/ghi tuần tự, cần throughput cao, giá rẻ, không cần IOPS, không phải boot volume → st1 sinh ra đúng cho bài này (big data, log processing). io1/io2 đắt và thừa IOPS, là đáp án bẫy về chi phí."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

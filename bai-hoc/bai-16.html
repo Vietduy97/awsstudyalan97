@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 16 — CloudFormation: Infrastructure as Code trên AWS — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 2 · SAA nâng cao</p>
+  <div class="md-body"><h1>Bài 16 — CloudFormation: Infrastructure as Code trên AWS</h1>
+<h2>Mục tiêu bài học</h2>
+<p>Sau bài này, bạn sẽ có thể:</p>
+<ul>
+<li>Giải thích Infrastructure as Code (IaC) và vai trò của AWS CloudFormation: Template, Stack, Change Sets, Stack Policies, Drift Detection.</li>
+<li>Cấu trúc một Template YAML/JSON, biết <strong>Resources là phần bắt buộc duy nhất</strong>, và dùng được các Intrinsic Functions cốt lõi: Ref, Fn::GetAtt, Fn::Sub, Fn::ImportValue.</li>
+<li>Dùng Outputs và Cross-Stack References để chia sẻ giá trị giữa các Stack an toàn.</li>
+<li>Hiểu cfn-init / cfn-signal Helper Scripts cho EC2 và Nested Stacks ở mức khái niệm.</li>
+<li>Phân biệt CloudFormation vs Elastic Beanstalk vs SAM theo đúng tiêu chí đề thi SAA-C03 hay kiểm tra.</li>
+</ul>
+<h2>Lý thuyết chính</h2>
+<h3>1. Infrastructure as Code và CloudFormation</h3>
+<p>Tạo hạ tầng bằng tay trên Console (click-ops) có ba vấn đề lớn: chậm, dễ sai lệch giữa các môi trường, và không ai biết hạ tầng đã bị sửa những gì. <strong>Infrastructure as Code</strong> giải quyết bằng cách mô tả toàn bộ hạ tầng trong một file code: có version control, review được, tái tạo y hệt ở mọi môi trường, xóa sạch bằng một lệnh.</p>
+<p>AWS CloudFormation là dịch vụ IaC gốc của AWS: bạn viết <strong>Template</strong>, CloudFormation đọc Template và tạo ra một <strong>Stack</strong> — tập hợp các tài nguyên AWS được quản lý như một đơn vị duy nhất.</p>
+<pre><code>Template (YAML/JSON) → CloudFormation → Stack → VPC, EC2, S3, RDS, IAM...
+                                              ↕ tạo / cập nhật / xóa đồng bộ
+</code></pre>
+<p><strong>Lợi ích hay được đề thi nhấn mạnh:</strong>
+- <strong>Tái lập (repeatable):</strong> cùng một Template dựng được dev/test/prod giống hệt nhau.
+- <strong>Tự động và có thứ tự:</strong> CloudFormation tự tính dependencies (ví dụ tạo VPC trước, Subnet sau, EC2 cuối cùng) và rollback khi có lỗi.
+- <strong>Xóa sạch:</strong> Delete Stack là xóa toàn bộ tài nguyên của Stack, không sót "tài nguyên mồ côi" gây tốn tiền.
+- <strong>Không tốn phí dịch vụ:</strong> CloudFormation miễn phí, bạn chỉ trả tiền cho tài nguyên nó tạo ra.</p>
+<h3>2. Cấu trúc Template</h3>
+<p>Template viết bằng <strong>YAML hoặc JSON</strong> (YAML phổ biến hơn vì dễ đọc), gồm các section chính:</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Bắt buộc?</th>
+<th>Nội dung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AWSTemplateFormatVersion</code></td>
+<td>Không</td>
+<td>Phiên bản định dạng template</td>
+</tr>
+<tr>
+<td><code>Description</code></td>
+<td>Không</td>
+<td>Mô tả stack</td>
+</tr>
+<tr>
+<td><code>Parameters</code></td>
+<td>Không</td>
+<td>Giá trị đầu vào lúc deploy (loại instance, tên môi trường...) để template tái sử dụng được</td>
+</tr>
+<tr>
+<td><code>Mappings</code></td>
+<td>Không</td>
+<td>Bảng tra cứu tĩnh, ví dụ AMI ID theo Region</td>
+</tr>
+<tr>
+<td><code>Conditions</code></td>
+<td>Không</td>
+<td>Điều kiện tạo tài nguyên, ví dụ chỉ tạo NAT Gateway ở prod</td>
+</tr>
+<tr>
+<td><strong><code>Resources</code></strong></td>
+<td><strong>BẮT BUỘC — duy nhất</strong></td>
+<td>Các tài nguyên AWS cần tạo: <code>AWS::S3::Bucket</code>, <code>AWS::EC2::Instance</code>...</td>
+</tr>
+<tr>
+<td><code>Outputs</code></td>
+<td>Không</td>
+<td>Giá trị xuất ra sau khi deploy: Bucket name, URL, ARN...</td>
+</tr>
+</tbody>
+</table>
+<p>Điểm phải thuộc lòng: <strong>Resources là section duy nhất bắt buộc có</strong>. Template thiếu mọi section khác vẫn hợp lệ, thiếu Resources thì không.</p>
+<p><strong>Parameters nâng cao ở mức khái niệm:</strong> AllowedValues (giới hạn lựa chọn), Default, NoEcho (che giá trị nhạy cảm như password trên console/log), SSM Parameter Store làm nguồn giá trị.</p>
+<h3>3. Stack và vòng đời Stack</h3>
+<ul>
+<li><strong>Stack:</strong> một instance đang sống của một Template. Update Template → Update Stack, CloudFormation tính toán thay đổi tối thiểu cần thiết.</li>
+<li><strong>Rollback:</strong> tạo/cập nhật thất bại, CloudFormation tự quay về trạng thái tốt gần nhất (xóa tài nguyên vừa tạo khi Create fail). Có tùy chọn giữ lại tài nguyên lỗi để debug (Rollback on failure = disabled / <code>--disable-rollback</code>).</li>
+<li><strong>Stack Events:</strong> dòng sự kiện chi tiết từng tài nguyên CREATE_IN_PROGRESS / COMPLETE / FAILED kèm lý do — nơi đầu tiên phải xem khi deploy lỗi.</li>
+</ul>
+<h4>Change Sets — Xem trước khi thay đổi</h4>
+<p><strong>Change Set</strong> là bản <strong>xem trước (preview)</strong> những gì sẽ xảy ra nếu apply bản Template mới: tài nguyên nào được <strong>Add / Modify / Remove</strong>, và quan trọng nhất là tài nguyên nào sẽ bị <strong>Replacement</strong> (xóa đi tạo lại — ví dụ đổi một số thuộc tính của EC2/RDS sẽ buộc tạo tài nguyên mới, có nguy cơ mất dữ liệu/ngắt dịch vụ).</p>
+<blockquote>
+<p>Luồng làm việc chuẩn và an toàn: tạo Change Set → đọc kỹ, đặc biệt cột Replacement → mới Execute. Đề thi hỏi "làm sao biết trước update sẽ thay thế tài nguyên nào" → đáp án luôn là Change Sets.</p>
+</blockquote>
+<h4>Stack Policies — Chặn sửa/xóa tài nguyên quan trọng</h4>
+<p><strong>Stack Policy</strong> là tài liệu JSON gắn vào Stack, quy định loại Update Action nào được phép trên tài nguyên nào. Tác dụng chính: <strong>bảo vệ tài nguyên trọng yếu</strong> (ví dụ RDS database production) khỏi bị vô tình update/xóa/replace khi ai đó update Stack.</p>
+<p>Lưu ý: Stack Policy chỉ áp dụng cho hành động <strong>Update</strong> của Stack, không chặn việc xóa cả Stack hay sửa tài nguyên trực tiếp ngoài CloudFormation.</p>
+<h4>Drift Detection — Phát hiện sửa tay</h4>
+<p><strong>Drift</strong> là tình trạng tài nguyên thật đã <strong>lệch khỏi Template</strong> vì ai đó sửa tay trên Console (đổi Security Group, tăng size, sửa tag...).</p>
+<p><strong>Drift Detection</strong> so sánh trạng thái thực tế với Template và báo cáo Stack/tài nguyên là <code>IN_SYNC</code> hay <code>DRIFTED</code> kèm chi tiết thuộc tính nào lệch. Nó <strong>chỉ phát hiện, không tự sửa</strong> — bạn phải tự quyết định sửa tay lại hay cập nhật Template cho khớp.</p>
+<blockquote>
+<p><strong>Tình huống thực tế:</strong> Sau 6 tháng, team vận hành sửa tay nhiều chỗ để chữa cháy. Trước kỳ audit, chạy Drift Detection cho mọi Stack production để biết hạ tầng thật còn khớp với code không — scenario rất hay gặp trong đề ở dạng "how to identify manual changes made outside CloudFormation".</p>
+</blockquote>
+<h3>4. Intrinsic Functions — Hàm nội tại cốt lõi</h3>
+<p>Intrinsic Functions chỉ dùng được <strong>bên trong Template</strong>, là phần đề thi kiểm tra nhiều nhất của bài này:</p>
+<table>
+<thead>
+<tr>
+<th>Hàm</th>
+<th>Tác dụng</th>
+<th>Ví dụ tình huống</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ref</strong></td>
+<td>Lấy giá trị của Parameter hoặc giá trị chính của Resource (ID/Name tùy loại)</td>
+<td><code>!Ref MyBucket</code> → tên S3 Bucket; <code>!Ref Environment</code> → giá trị parameter</td>
+</tr>
+<tr>
+<td><strong>Fn::GetAtt</strong></td>
+<td>Lấy <strong>thuộc tính mở rộng</strong> của Resource mà Ref không trả về</td>
+<td>Lấy ARN của S3 Bucket, DNS name của Load Balancer: <code>!GetAtt MyLB.DNSName</code></td>
+</tr>
+<tr>
+<td><strong>Fn::Sub</strong></td>
+<td><strong>Thay biến vào chuỗi</strong> (string substitution), gộp giá trị thành một chuỗi</td>
+<td>Tạo tên bucket <code>"${AWS::StackName}-data-${Environment}"</code>, dựng ARN, viết User Data script có biến</td>
+</tr>
+<tr>
+<td><strong>Fn::ImportValue</strong></td>
+<td><strong>Nhập giá trị được Export</strong> từ Stack khác (Cross-Stack Reference)</td>
+<td>Stack App nhập VPC ID do Stack Network đã export</td>
+</tr>
+<tr>
+<td>Fn::Join / Fn::Split</td>
+<td>Nối / tách chuỗi (biết ở mức khái niệm)</td>
+<td>Ghép danh sách subnet, tách chuỗi ARN</td>
+</tr>
+<tr>
+<td>Fn::Select / Fn::GetAZs</td>
+<td>Chọn phần tử / lấy danh sách AZ của Region (mức khái niệm)</td>
+<td>Chọn AZ thứ 2 để đặt subnet</td>
+</tr>
+<tr>
+<td>Fn::If</td>
+<td>Chọn giá trị theo Condition (mức khái niệm)</td>
+<td>Prod dùng instance lớn, dev dùng instance nhỏ</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Phân biệt Ref vs Fn::GetAtt</strong> — bẫy kinh điển nhất:
+- Muốn ID/tên chính của tài nguyên → <code>Ref</code>.
+- Muốn thuộc tính khác (ARN, DNS, endpoint...) → <code>Fn::GetAtt</code>.</p>
+<h3>5. Outputs và Cross-Stack References</h3>
+<ul>
+<li><strong>Outputs:</strong> phần Template khai báo giá trị xuất ra sau khi Stack tạo xong (hiển thị trên Console, truy vấn bằng CLI/API). Output có thể đặt cờ <strong>Export</strong> với một tên duy nhất trong Region + Account.</li>
+<li><strong>Cross-Stack Reference:</strong> Stack B dùng <code>Fn::ImportValue</code> để nhập giá trị Stack A đã Export — ví dụ Stack Network export VPC ID và Subnet IDs, nhiều Stack App cùng import dùng chung.</li>
+<li>Hệ quả phải nhớ: tài nguyên đã được Stack khác import thì <strong>Stack gốc không xóa/update được Export đó</strong> cho tới khi Stack phụ thuộc bỏ tham chiếu. Đây là cơ chế an toàn nhưng cũng là nguyên nhân deploy bị chặn hay gặp.</li>
+</ul>
+<blockquote>
+<p><strong>Tình huống thực tế:</strong> Team nền tảng quản lý một Stack <code>network-prod</code> chứa VPC dùng chung cho 15 ứng dụng. Mỗi ứng dụng là một Stack riêng import VPC ID qua Cross-Stack Reference. Nâng cấp mạng làm một chỗ, không team app nào phải copy-paste VPC ID, và không ai lỡ tay xóa được VPC đang có 15 app phụ thuộc.</p>
+</blockquote>
+<h3>6. Helper Scripts cho EC2: cfn-init và cfn-signal</h3>
+<p>EC2 nằm trong Stack cần cơ chế báo cho CloudFormation biết việc cài đặt bên trong máy đã xong hay chưa:</p>
+<ul>
+<li><strong>cfn-init:</strong> script chạy trong EC2 (thường qua User Data), đọc phần metadata <code>AWS::CloudFormation::Init</code> trong Template để cài package, tạo file cấu hình, khởi động service một cách có cấu trúc — thay vì viết User Data shell script dài dòng khó bảo trì.</li>
+<li><strong>cfn-signal:</strong> script báo tín hiệu thành công/thất bại về cho CloudFormation. Kết hợp với <strong>CreationPolicy / ResourceSignal</strong>: Stack <strong>chờ tín hiệu</strong> trong một khoảng timeout trước khi đánh dấu EC2 là CREATE_COMPLETE. Không nhận được tín hiệu success → Stack rollback.</li>
+<li>Cặp này hay xuất hiện trong scenario: "EC2 phải cài xong ứng dụng và báo về thì Stack mới coi là thành công, nếu cài lỗi thì rollback toàn bộ".</li>
+</ul>
+<h3>7. Nested Stacks — Ở mức khái niệm</h3>
+<p><strong>Nested Stack</strong> là Stack con được tạo từ một Stack cha thông qua resource <code>AWS::CloudFormation::Stack</code>. Dùng khi một mẫu hạ tầng lặp lại nhiều lần (ví dụ module VPC, module ALB chuẩn) hoặc Template quá lớn cần tách nhỏ để tái sử dụng và quản trị theo team. Update Stack cha sẽ lan xuống các Stack con. Khác với Cross-Stack Reference: Nested là quan hệ <strong>cha–con trong một cây triển khai</strong>, Cross-Stack là các Stack <strong>ngang hàng tham chiếu giá trị</strong> của nhau.</p>
+<h3>8. Phân biệt CloudFormation vs Elastic Beanstalk vs SAM</h3>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>CloudFormation</th>
+<th>Elastic Beanstalk</th>
+<th>AWS SAM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bản chất</td>
+<td>IaC khai báo <strong>mọi tài nguyên AWS</strong></td>
+<td><strong>PaaS</strong> deploy ứng dụng nhanh</td>
+<td><strong>Mở rộng (extension) của CloudFormation</strong> cho serverless</td>
+</tr>
+<tr>
+<td>Bạn quản lý</td>
+<td>Toàn quyền và toàn trách nhiệm về hạ tầng</td>
+<td>Chỉ đưa code, Beanstalk tự lo EC2/ELB/ASG</td>
+<td>Khai báo Lambda, API Gateway, DynamoDB bằng cú pháp tắt ngắn gọn</td>
+</tr>
+<tr>
+<td>Cú pháp</td>
+<td>Template đầy đủ, dài</td>
+<td>Không viết template hạ tầng (có thể tùy biến bằng .ebextensions)</td>
+<td>Template SAM transform: <code>AWS::Serverless::Function</code>... biên dịch thành CloudFormation</td>
+</tr>
+<tr>
+<td>Dùng khi nào</td>
+<td>Cần kiểm soát chi tiết, hạ tầng phức tạp, chuẩn doanh nghiệp</td>
+<td>Developer muốn <strong>deploy app nhanh nhất</strong>, ít quan tâm hạ tầng</td>
+<td>Dự án <strong>serverless</strong> là chính, muốn template ngắn + công cụ build/deploy/test local</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Beanstalk không phải IaC đa năng:</strong> nó trừu tượng hóa hạ tầng để deploy code nhanh; cần VPC/RDS/IAM tùy biến sâu thì phải quay về CloudFormation.</li>
+<li><strong>SAM không thay thế CloudFormation:</strong> SAM Template được CloudFormation xử lý sau bước transform — mọi Stack SAM vẫn là Stack CloudFormation.</li>
+</ul>
+<h2>Ví dụ đời thường</h2>
+<p>Hãy hình dung việc <strong>xây nhà theo bản vẽ</strong>:</p>
+<ul>
+<li><strong>Template</strong> là bản vẽ kiến trúc hoàn chỉnh: móng ở đâu, mấy phòng, đường điện nước thế nào. <strong>Resources</strong> là phần bản vẽ các phòng — bản vẽ không có phòng thì không phải bản vẽ nhà, nên nó là phần bắt buộc duy nhất.</li>
+<li><strong>Stack</strong> là ngôi nhà thật được xây từ bản vẽ đó. Một bản vẽ xây được nhiều ngôi nhà giống hệt ở các khu đất khác nhau (dev, test, prod).</li>
+<li><strong>Parameters</strong> là những lựa chọn của chủ nhà lúc xây: sơn màu gì (biến đầu vào), nhà vẫn theo cùng một bản vẽ.</li>
+<li><strong>Change Set</strong> là lúc nhà thầu đưa tờ giấy: "sửa theo yêu cầu mới thì phòng này giữ nguyên, phòng kia phải đập xây lại (replacement)" — bạn xem và gật đầu <strong>trước khi</strong> người ta cầm búa.</li>
+<li><strong>Stack Policy</strong> là quy định dán ở phòng máy chủ: "phòng này không ai được tự ý sửa trong lúc nâng cấp nhà".</li>
+<li><strong>Drift Detection</strong> là đoàn kiểm tra cầm bản vẽ đi đối chiếu nhà thật: "sao ở đây có thêm một bức tường không có trong bản vẽ?" — họ chỉ ghi biên bản, không tự đập tường (chỉ phát hiện, không tự sửa).</li>
+<li><strong>Fn::Sub</strong> giống điền tên vào mẫu thư: "Kính gửi ${Tên}, mã đơn của bạn là ${Mã}" — một khuôn, nhiều giá trị thật.</li>
+<li><strong>Cross-Stack Reference</strong> là khu đô thị: bản vẽ hệ thống đường và cấp nước (Stack Network) công bố sẵn số hiệu tuyến ống, bản vẽ từng ngôi nhà chỉ việc ghi "nối vào tuyến ống số X" (ImportValue) thay vì tự đào hệ thống nước riêng.</li>
+</ul>
+<h2>Phân biệt dễ nhầm</h2>
+<p><strong>1. Ref vs Fn::GetAtt</strong>
+- <code>Ref</code> lấy giá trị định danh chính (ID/tên) của resource hoặc giá trị của parameter.
+- <code>Fn::GetAtt</code> lấy thuộc tính phụ: ARN, DNS name, endpoint. Cần ARN mà dùng Ref là sai — bẫy số 1 của bài này.</p>
+<p><strong>2. Change Sets vs Stack Policies vs Drift Detection</strong>
+- Change Sets: xem trước <strong>hậu quả của lần update sắp tới</strong> (trước khi thay đổi).
+- Stack Policies: <strong>chặn</strong> các update nguy hiểm lên tài nguyên quan trọng (trong lúc update).
+- Drift Detection: phát hiện <strong>lệch lạc đã xảy ra</strong> do sửa tay ngoài CloudFormation (sau khi thay đổi).
+- Ba công cụ ứng với ba thời điểm: trước — trong — sau.</p>
+<p><strong>3. Cross-Stack Reference vs Nested Stacks</strong>
+- Cross-Stack: các Stack độc lập, ngang hàng; Stack này <strong>import output đã export</strong> của Stack kia bằng Fn::ImportValue.
+- Nested: Stack <strong>con nằm trong Stack cha</strong>, cha quản lý vòng đời của con như một resource.</p>
+<p><strong>4. CloudFormation vs Elastic Beanstalk</strong>
+- Cần mô tả và kiểm soát <strong>hạ tầng</strong> chi tiết → CloudFormation.
+- Chỉ muốn <strong>đẩy code lên chạy nhanh</strong>, chấp nhận nền tảng tự quyết hạ tầng → Elastic Beanstalk.</p>
+<p><strong>5. SAM vs CloudFormation</strong>
+- SAM là lớp cú pháp tắt <strong>trên</strong> CloudFormation dành riêng cho serverless, không phải dịch vụ đối thủ. Template SAM cuối cùng vẫn deploy bằng CloudFormation.</p>
+<p><strong>6. Outputs vs Export</strong>
+- Mọi Export đều là Output, nhưng không phải Output nào cũng Export. Chỉ Output có khai báo Export mới được Stack khác ImportValue; Output thường chỉ để hiển thị và truy vấn.</p>
+<h2>Bẫy đề thi</h2>
+<ol>
+<li>
+<p><strong>Hỏi section bắt buộc duy nhất.</strong> Đáp án là <strong>Resources</strong>. Template có thể không có Parameters, Outputs, Mappings... nhưng không thể không có Resources.</p>
+</li>
+<li>
+<p><strong>Update làm mất dữ liệu mà không ai báo trước.</strong> Nếu team dùng Change Sets và đọc kỹ cột <strong>Replacement = True</strong> cho RDS/EC2 thì đã thấy trước nguy cơ. Scenario "làm sao preview thay đổi, đặc biệt tài nguyên nào bị thay thế" → Change Sets.</p>
+</li>
+<li>
+<p><strong>Nhầm Drift Detection là công cụ tự vá.</strong> Nó chỉ <strong>báo cáo</strong> drift. Muốn hết drift phải chủ động: sửa tay ngược lại, hoặc update Stack/Template. Đáp án "enable drift detection to automatically fix changes" là sai.</p>
+</li>
+<li>
+<p><strong>Stack Policy bị tưởng là chặn được mọi thứ.</strong> Stack Policy chỉ giới hạn <strong>Stack Update Actions</strong>. Nó không ngăn xóa toàn bộ Stack, không ngăn user có quyền sửa thẳng tài nguyên trên Console.</p>
+</li>
+<li>
+<p><strong>Xóa Stack Network thất bại không rõ lý do.</strong> Thường vì Output của nó đang bị Stack khác ImportValue. Phải gỡ tham chiếu ở các Stack phụ thuộc trước — đây là hệ quả thiết kế của Cross-Stack References, không phải lỗi dịch vụ.</p>
+</li>
+<li>
+<p><strong>Dùng Ref để lấy ARN.</strong> Ref của S3 Bucket trả về tên bucket, không phải ARN. Lấy ARN/DNS/endpoint → Fn::GetAtt. Đề thi lặp lại bẫy này rất nhiều lần với nhiều loại resource.</p>
+</li>
+<li>
+<p><strong>EC2 báo CREATE_COMPLETE dù ứng dụng cài thất bại.</strong> Vì thiếu CreationPolicy + cfn-signal: CloudFormation chỉ biết EC2 đã boot xong chứ không biết app bên trong thành công. Muốn Stack chờ và rollback khi cài app lỗi → cfn-init cài đặt + cfn-signal báo về + CreationPolicy chờ tín hiệu.</p>
+</li>
+<li>
+<p><strong>Chọn Beanstalk cho yêu cầu IaC kiểm soát toàn diện.</strong> Beanstalk tiện cho deploy app nhưng không phải công cụ khai báo mọi tài nguyên AWS. Yêu cầu "define all infrastructure as code, full control, reproducible" → CloudFormation (hoặc SAM nếu thuần serverless).</p>
+</li>
+<li>
+<p><strong>Fn::ImportValue dùng giá trị chưa Export.</strong> ImportValue chỉ hoạt động với Output <strong>đã Export</strong> và tên export phải <strong>duy nhất trong Account + Region</strong>. Thiếu Export ở Stack nguồn là nguyên nhân template validate/deploy lỗi kinh điển.</p>
+</li>
+</ol>
+<h2>Tóm tắt 5 dòng</h2>
+<ol>
+<li>CloudFormation là dịch vụ IaC của AWS: Template YAML/JSON mô tả hạ tầng, Stack là tập tài nguyên được tạo và quản lý như một đơn vị, tạo/cập nhật/xóa đồng bộ và rollback khi lỗi.</li>
+<li>Trong Template, Resources là section bắt buộc duy nhất; Parameters/Mappings/Conditions/Outputs là tùy chọn giúp template tái sử dụng và linh hoạt.</li>
+<li>Change Sets cho xem trước thay đổi và cảnh báo Replacement, Stack Policies chặn update vào tài nguyên quan trọng, Drift Detection phát hiện (không tự sửa) các thay đổi làm tay ngoài Template.</li>
+<li>Intrinsic Functions cốt lõi: Ref lấy giá trị chính, Fn::GetAtt lấy thuộc tính như ARN/DNS, Fn::Sub thay biến vào chuỗi, Fn::ImportValue nhập giá trị Export từ Stack khác cho Cross-Stack References.</li>
+<li>cfn-init/cfn-signal giúp EC2 cài đặt và báo tín hiệu về Stack kèm CreationPolicy; Nested Stacks tổ chức template lớn dạng cha–con; CloudFormation khác Beanstalk (PaaS deploy app nhanh) và là nền tảng mà SAM mở rộng cho serverless.</li>
+</ol></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-15.html">← Bài 15 — API Gateway: Cổng vào của kiến trúc Serverless</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-17.html">Bài 17 — ECS, EKS và Container →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-16"; window.QUIZ_DATA = [{"n": 1, "text": "A solutions architect is writing an AWS CloudFormation template in YAML. Which section of the template is the ONLY section that must be included for the template to be valid?", "options": {"A": "Parameters", "B": "Outputs", "C": "Resources", "D": "Mappings"}, "answer": "C", "explanation": "Resources là section duy nhất bắt buộc trong CloudFormation Template — nó khai báo các tài nguyên AWS cần tạo. Parameters, Outputs, Mappings, Conditions đều là tùy chọn; template thiếu chúng vẫn hợp lệ, thiếu Resources thì không."}, {"n": 2, "text": "Before updating a production CloudFormation stack, a team wants to preview exactly which resources will be added, modified, or replaced, because replacing the database would cause downtime. Which CloudFormation feature should the team use?", "options": {"A": "Drift Detection", "B": "Stack Policy", "C": "Change Sets", "D": "cfn-signal"}, "answer": "C", "explanation": "Change Sets tạo bản xem trước của lần update: tài nguyên nào Add/Modify/Remove và đặc biệt tài nguyên nào bị Replacement (xóa tạo lại). Team phải review Change Set rồi mới Execute. Drift Detection dùng để phát hiện sửa tay sau này, Stack Policy để chặn update — cả hai đều không cho preview thay đổi."}, {"n": 3, "text": "A network stack exports its VPC ID. An application stack needs to use that VPC ID when launching resources, and the value must always stay in sync with the network stack. Which intrinsic function should the application stack's template use?", "options": {"A": "Ref", "B": "Fn::GetAtt", "C": "Fn::Sub", "D": "Fn::ImportValue"}, "answer": "D", "explanation": "Đây là mẫu Cross-Stack Reference: Stack Network Export VPC ID trong Outputs, Stack App dùng Fn::ImportValue để nhập vào. Ref chỉ tham chiếu resource/parameter trong cùng một template, Fn::GetAtt lấy thuộc tính của resource cùng stack, Fn::Sub chỉ thay biến vào chuỗi."}, {"n": 4, "text": "An operations team discovers that engineers have been making manual changes to production resources through the AWS Management Console, and the actual infrastructure no longer matches the CloudFormation templates. Which feature will identify the resources that have been modified outside of CloudFormation?", "options": {"A": "Change Sets", "B": "Drift Detection", "C": "Stack Policies", "D": "Nested Stacks"}, "answer": "B", "explanation": "Drift Detection so sánh trạng thái thực tế của tài nguyên với Template và báo cáo tài nguyên nào đã DRIFTED do thay đổi ngoài CloudFormation. Lưu ý nó chỉ phát hiện và báo cáo, không tự sửa. Stack Policy chặn update, Change Sets xem trước update — không công cụ nào trong số đó rà soát được sửa tay đã xảy ra."}, {"n": 5, "text": "A development team wants to deploy a Java web application as quickly as possible. The developers do not want to design or manage the underlying infrastructure in detail, but they still want AWS to handle provisioning, load balancing, and auto scaling for the application environment. Which service is the best fit?", "options": {"A": "AWS CloudFormation", "B": "AWS SAM", "C": "Amazon Elastic Beanstalk", "D": "AWS Step Functions"}, "answer": "C", "explanation": "Elastic Beanstalk là dịch vụ PaaS: developer chỉ đưa code, Beanstalk tự lo provisioning, Load Balancer và Auto Scaling — đúng yêu cầu \"deploy nhanh, không muốn quản lý hạ tầng chi tiết\". CloudFormation cho toàn quyền kiểm soát IaC nhưng đòi hỏi tự khai báo mọi thứ, SAM là mở rộng của CloudFormation cho serverless, Step Functions là điều phối workflow chứ không phải nền tảng deploy ứng dụng."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

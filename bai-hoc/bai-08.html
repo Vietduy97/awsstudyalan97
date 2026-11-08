@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài 08 — DynamoDB & Aurora: NoSQL tốc độ cao và SQL “xịn” của AWS — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="../index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="../index.html">Trang chủ</a>
+      <a href="../bai-hoc/index.html">Bài học</a>
+      <a href="../cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="../phan-biet.html">Phân biệt</a>
+      <a href="../de-thi/index.html">Đề thi</a>
+      <a href="../tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<article class="lesson">
+  <p class="crumb"><a href="index.html">Bài học</a> · Giai đoạn 1 · Beginner</p>
+  <div class="md-body"><h1>Bài 08 — DynamoDB &amp; Aurora: NoSQL tốc độ cao và SQL “xịn” của AWS</h1>
+<h2>Mục tiêu bài học</h2>
+<ul>
+<li>Hiểu <code>DynamoDB</code> là database <code>NoSQL</code> key-value/document, khi nào bỏ SQL để chọn DynamoDB.</li>
+<li>Nắm <code>partition key</code> + <code>sort key</code>, hai chế độ <code>Provisioned</code> vs <code>On-Demand</code>, và phân biệt <code>Strongly</code> vs <code>Eventually consistent reads</code>.</li>
+<li>Biết <code>DAX</code>, <code>DynamoDB Streams</code>, <code>Global Tables</code>, <code>TTL</code> giải quyết bài toán gì.</li>
+<li>Hiểu <code>Aurora</code> hơn RDS thường ở điểm nào: storage 128 TB, 15 replicas, <code>Aurora Serverless</code>, <code>Aurora Global Database</code>.</li>
+<li>Có bảng so sánh nhanh RDS vs Aurora vs DynamoDB để chốt đáp án khi đề cho tình huống lẫn lộn.</li>
+</ul>
+<h2>Lý thuyết chính (tiếng Việt dễ hiểu, giữ nguyên thuật ngữ English)</h2>
+<h3>Phần A — DynamoDB: NoSQL không cần server để quản</h3>
+<p>DynamoDB là database NoSQL được quản lý hoàn toàn (<code>serverless</code> ở góc độ vận hành — bạn không quản lý instance nào cả). Nó lưu dữ liệu dạng <code>key-value</code> và <code>document</code>.</p>
+<p><strong>Khóa chính (primary key) gồm:</strong>
+- <code>Partition key</code> (bắt buộc): quyết định dữ liệu nằm ở phân vùng nào. Chọn partition key tốt (phân tán đều) là yếu tố sống còn về hiệu năng.
+- <code>Sort key</code> (tùy chọn): kết hợp partition key + sort key tạo khóa ghép. Cùng một partition key có thể có nhiều item khác nhau theo sort key, và query theo khoảng sort key rất nhanh. Ví dụ: partition key = <code>user_id</code>, sort key = <code>order_date</code>.</p>
+<p><strong>Capacity — hai cách trả tiền cho thông lượng:</strong>
+- <strong>Provisioned capacity:</strong> bạn khai báo trước số <code>RCU/WCU</code> (đơn vị đọc/ghi mỗi giây). Rẻ hơn nếu tải ổn định, đoán trước được. Khai báo thiếu thì bị <code>throttling</code> (từ chối request).
+- <strong>On-Demand capacity:</strong> không khai báo gì, dùng bao nhiêu trả bấy nhiêu, tự co giãn theo tải tăng đột biến. Đắt hơn theo đơn vị, phù hợp tải không đều, khó đoán, app mới.</p>
+<p><strong>Mức nhất quán khi đọc (consistency):</strong>
+- <strong>Eventually consistent reads (mặc định):</strong> đọc có thể nhận dữ liệu cũ hơn vài tích tắc sau khi ghi, đổi lại rẻ hơn và nhanh hơn. Phù hợp đa số trường hợp.
+- <strong>Strongly consistent reads:</strong> đọc luôn nhận dữ liệu mới nhất vừa ghi. Tốn capacity gấp đôi. Chỉ chọn khi đề nhấn mạnh "must read the latest data immediately after a write".</p>
+<p><strong>Các tính năng hay thi của DynamoDB:</strong>
+- <strong>DAX (DynamoDB Accelerator):</strong> cache <code>in-memory</code> nằm trước DynamoDB, giảm độ trễ đọc xuống mức <strong>microsecond</strong> (micro-giây). Từ khóa nhận diện: "microsecond latency", "in-memory cache for DynamoDB".
+- <strong>DynamoDB Streams:</strong> dòng sự kiện ghi lại mọi thay đổi (thêm/sửa/xóa item) theo thứ tự thời gian. Thường kết hợp Lambda để xử lý sự kiện: item mới tạo → kích hoạt Lambda gửi thông báo, đồng bộ sang hệ thống khác.
+- <strong>Global Tables:</strong> bảng DynamoDB trải nhiều Region theo mô hình <strong>multi-Region active-active</strong> — ghi ở Region nào cũng được, dữ liệu tự đồng bộ sang các Region còn lại. Khác hẳn mô hình primary-standby thụ động.
+- <strong>TTL (Time To Live):</strong> đặt một thuộc tính thời gian hết hạn cho từng item, DynamoDB <strong>tự xóa item khi hết hạn</strong> mà không tốn công bạn viết job dọn dẹp. Dùng cho session, giỏ hàng tạm, dữ liệu chỉ có giá trị trong 24 giờ...</p>
+<h3>Phần B — Aurora: database quan hệ do AWS tự xây</h3>
+<p>Aurora thuộc họ RDS nhưng là engine riêng của AWS, <strong>tương thích với MySQL và PostgreSQL</strong> (<code>MySQL-compatible</code>, <code>PostgreSQL-compatible</code>) — app đang dùng MySQL/PostgreSQL chuyển sang Aurora gần như không phải sửa code.</p>
+<p>Điểm vượt trội phải nhớ:
+- <strong>Storage tự tăng tới 128 TB:</strong> lớp lưu trữ của Aurora tự động mở rộng theo dữ liệu, bạn không phải cấp phát dung lượng trước như RDS thường.
+- <strong>Tối đa 15 Aurora Replicas:</strong> các replica đọc dùng chung lớp storage với primary nên độ trễ sao chép rất thấp. Con số 15 này trùng với Read Replica của RDS thường, nhưng kiến trúc bên dưới khác nhau.
+- <strong>Backup liên tục + Point-in-Time Restore:</strong> Aurora backup liên tục lên S3, cho phép khôi phục về <strong>bất kỳ thời điểm nào</strong> trong cửa sổ backup (<code>point-in-time restore</code>).
+- <strong>Aurora Serverless:</strong> phiên bản tự co giãn — tự tăng/giảm capacity theo tải, tự về mức rất thấp khi không có tải. Sinh ra cho <strong>tải không đều, khó đoán</strong> (app lúc cao điểm lúc vắng, môi trường dev/test chạy không liên tục). Từ khóa đề: "unpredictable / intermittent workload".
+- <strong>Aurora Global Database:</strong> triển khai Aurora qua nhiều Region, replication sang Region phụ với <strong>độ trễ thường dưới 1 giây (<code>typically less than 1 second</code>)</strong>. Dùng cho ứng dụng toàn cầu và disaster recovery xuyên Region.</p>
+<h3>Bảng so sánh nhanh RDS vs Aurora vs DynamoDB</h3>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>RDS (thường)</th>
+<th>Aurora</th>
+<th>DynamoDB</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Loại dữ liệu</td>
+<td>Quan hệ (SQL)</td>
+<td>Quan hệ (SQL)</td>
+<td>NoSQL key-value / document</td>
+</tr>
+<tr>
+<td>Engine</td>
+<td>MySQL, PostgreSQL, MariaDB, Oracle, SQL Server</td>
+<td>Tương thích MySQL / PostgreSQL</td>
+<td>Engine riêng của AWS</td>
+</tr>
+<tr>
+<td>Replicas đọc</td>
+<td>Tối đa 15 Read Replicas</td>
+<td>Tối đa 15 Aurora Replicas</td>
+<td>Không dùng khái niệm replica kiểu này</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>Cấp phát trước (EBS)</td>
+<td>Tự tăng tới 128 TB</td>
+<td>Serverless, không quản lý storage</td>
+</tr>
+<tr>
+<td>Multi-Region nổi bật</td>
+<td>Cross-Region Read Replica</td>
+<td>Aurora Global Database (lag thường &lt; 1s)</td>
+<td>Global Tables (active-active)</td>
+</tr>
+<tr>
+<td>Co giãn tự động</td>
+<td>Hạn chế</td>
+<td>Có Aurora Serverless</td>
+<td>Có On-Demand capacity</td>
+</tr>
+<tr>
+<td>Chọn khi</td>
+<td>Cần Oracle / SQL Server, SQL truyền thống</td>
+<td>Cần SQL hiệu năng cao, scale lớn, vẫn tương thích MySQL/PostgreSQL</td>
+<td>Cần NoSQL scale cực lớn, latency thấp, không cần join phức tạp</td>
+</tr>
+</tbody>
+</table>
+<h2>Ví dụ đời thường</h2>
+<p><strong>DynamoDB</strong> giống như tủ locker thông minh ở ga tàu. Mỗi locker có mã số riêng (<code>partition key</code>) — bạn chỉ cần biết mã là mở đúng ngăn trong tích tắc, không cần hỏi nhân viên, không cần đi qua từng quầy. Thêm mã phụ (<code>sort key</code>) giống như dãy locker của cùng một khách được xếp theo ngày gửi đồ. Ga có thêm 1 triệu khách thì AWS tự lắp thêm locker, bạn không phải xây nhà ga mới. Tờ giấy ghi giờ hết hạn gửi đồ chính là <code>TTL</code>: quá giờ, nhân viên tự dọn ngăn.</p>
+<p><strong>DAX</strong> là anh nhân viên đứng ngay cửa, nhớ sẵn những locker hay được mở nhất và đưa đồ ngay trong tích tắc (microsecond) thay vì bắt bạn đi vào tận kho.</p>
+<p><strong>Aurora</strong> thì giống một nhà hàng bạn quen: vẫn là món phở, công thức cũ của MySQL/PostgreSQL (tương thích), nhưng bếp được AWS thiết kế lại — nồi nước dùng tự to ra khi khách đông (storage tới 128 TB), có tới 15 quầy phụ phục vụ cùng một nồi nước (replica dùng chung storage). <code>Aurora Serverless</code> là kiểu nhà hàng chỉ mở bếp đúng số lượng khách đang có mặt: vắng khách thì bếp tự thu nhỏ, bạn không trả tiền cho bếp trống.</p>
+<h2>Phân biệt dễ nhầm</h2>
+<table>
+<thead>
+<tr>
+<th>Cặp dễ nhầm</th>
+<th>Cách phân biệt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Provisioned vs On-Demand (DynamoDB)</td>
+<td>Provisioned: đặt trước RCU/WCU, rẻ khi tải đều. On-Demand: trả theo dùng, cho tải đột biến/khó đoán.</td>
+</tr>
+<tr>
+<td>Strongly vs Eventually Consistent</td>
+<td>Strongly: đọc ngay dữ liệu mới nhất, tốn gấp đôi capacity. Eventually: có thể cũ vài tích tắc, mặc định và rẻ hơn.</td>
+</tr>
+<tr>
+<td>DAX vs ElastiCache (ngữ cảnh DynamoDB)</td>
+<td>Đề nhắc cache riêng cho DynamoDB, microsecond → DAX. DAX chỉ dành cho DynamoDB.</td>
+</tr>
+<tr>
+<td>Global Tables vs Global Database</td>
+<td>Global Tables là của <strong>DynamoDB</strong>, active-active nhiều Region. Global Database là của <strong>Aurora</strong>. Hai tên rất giống nhau, đề cố tình để lẫn.</td>
+</tr>
+<tr>
+<td>Aurora Replicas vs RDS Read Replicas</td>
+<td>Cùng tối đa 15, nhưng Aurora Replicas dùng chung storage với primary nên lag rất thấp.</td>
+</tr>
+<tr>
+<td>Aurora Serverless vs RDS thường</td>
+<td>Tải không đều / intermittent / unpredictable → Serverless. Tải đều đặn 24/7 → bản thường có thể rẻ hơn.</td>
+</tr>
+</tbody>
+</table>
+<h2>Bẫy đề thi</h2>
+<ul>
+<li>Thấy "microsecond latency for DynamoDB reads" → đáp án là <strong>DAX</strong>, không phải tăng Provisioned capacity.</li>
+<li>Thấy "automatically delete expired items / sessions at no extra cost" → <strong>TTL</strong> của DynamoDB.</li>
+<li>Thấy "capture changes to DynamoDB items and trigger processing" → <strong>DynamoDB Streams</strong> (thường + Lambda).</li>
+<li>Thấy "multi-Region, active-active, users write in their local Region" → <strong>DynamoDB Global Tables</strong>. Nếu là Aurora thì Global Database <strong>không</strong> phải active-active ghi nhiều nơi như vậy, nó là primary + secondary Region với lag &lt; 1 giây.</li>
+<li>Đề cho Aurora: thuộc lòng 3 con số — <strong>storage 128 TB, tối đa 15 replicas, Global Database lag thường &lt; 1 giây</strong>.</li>
+<li>App cần SQL và join phức tạp → đừng chọn DynamoDB dù nó scale tốt đến đâu. Ngược lại, app cần key-value scale cực lớn, không join → đừng gò vào RDS.</li>
+<li>"Unpredictable workload" cho database quan hệ → <strong>Aurora Serverless</strong>. Cùng từ khóa đó cho DynamoDB → <strong>On-Demand capacity</strong>.</li>
+</ul>
+<h2>Tóm tắt 5 dòng</h2>
+<p>DynamoDB là NoSQL key-value/document với partition key + sort key, chọn Provisioned cho tải đều và On-Demand cho tải khó đoán.
+Strongly consistent reads cho dữ liệu mới nhất tốn gấp đôi, eventually consistent là mặc định rẻ hơn; DAX cho latency microsecond, TTL tự xóa item hết hạn.
+DynamoDB Streams bắt sự kiện thay đổi dữ liệu, Global Tables cho multi-Region active-active.
+Aurora tương thích MySQL/PostgreSQL, storage tự tăng tới 128 TB, tối đa 15 replicas, backup liên tục kèm point-in-time restore.
+Aurora Serverless hợp tải không đều, Aurora Global Database replication khác Region với lag thường dưới 1 giây.</p></div>
+  <section class="lesson-actions">
+    <label class="done-toggle"><input type="checkbox" id="lesson-done"> <span>Đánh dấu đã học xong bài này</span></label>
+  </section>
+  <section id="quiz-box" class="quiz-box"></section>
+  <nav class="lesson-nav"><a class="btn btn-ghost" href="bai-07.html">← Bài 07 — RDS: Cơ sở dữ liệu quan hệ được quản lý</a><span class="spacer"></span><a class="btn btn-ghost" href="bai-09.html">Bài 09 — VPC: Mạng Riêng Trên AWS →</a></nav>
+</article>
+<script>window.LESSON_SLUG = "bai-08"; window.QUIZ_DATA = [{"n": 1, "text": "A DynamoDB-based application needs read latency in microseconds for frequently accessed items. Which feature should be implemented?", "options": {"A": "DynamoDB Streams", "B": "DynamoDB Accelerator (DAX)", "C": "Provisioned capacity with auto scaling", "D": "Strongly consistent reads"}, "answer": "B", "explanation": "Từ khóa `microseconds` chỉ thuộc về DAX — cache in-memory chuyên cho DynamoDB. Streams dùng để bắt sự kiện thay đổi, tăng capacity hay strongly consistent đều không đưa độ trễ xuống microsecond."}, {"n": 2, "text": "A gaming company runs a DynamoDB table in three AWS Regions. Players must be able to read and write data in their nearest Region with changes replicated to the other Regions. Which feature provides this?", "options": {"A": "DynamoDB Global Tables", "B": "Aurora Global Database", "C": "S3 Cross-Region Replication", "D": "Read Replicas"}, "answer": "A", "explanation": "Ghi/đọc ở mọi Region (`active-active`) là đặc trưng của DynamoDB Global Tables. Aurora Global Database là cho database quan hệ Aurora (primary + secondary), không phải bảng DynamoDB, còn Read Replica là khái niệm của RDS."}, {"n": 3, "text": "An application using Aurora experiences unpredictable workloads — very busy at launch events and almost idle at night. The company wants the database capacity to scale automatically and minimize costs during idle periods. Which option fits best?", "options": {"A": "RDS Multi-AZ with the largest instance class", "B": "Aurora Serverless", "C": "DynamoDB with Provisioned capacity", "D": "Aurora Global Database"}, "answer": "B", "explanation": "Workload không đều, khó đoán (`unpredictable`), cần tự co giãn và rẻ khi idle — đây là mô tả chuẩn của Aurora Serverless. Chọn instance lớn cố định (đáp án A) sẽ lãng phí tiền lúc vắng khách."}, {"n": 4, "text": "User session records stored in DynamoDB must be automatically deleted 24 hours after creation without running a custom cleanup job. Which feature should be used?", "options": {"A": "DynamoDB Streams", "B": "DAX", "C": "Time To Live (TTL)", "D": "Global Tables"}, "answer": "C", "explanation": "TTL cho phép gắn thời gian hết hạn lên từng item, DynamoDB tự xóa item hết hạn — sinh ra đúng cho session, token, dữ liệu tạm 24 giờ. Không cần viết job dọn dẹp riêng."}, {"n": 5, "text": "A company runs Aurora with a primary DB cluster in one Region and needs a secondary Region for disaster recovery and low-latency reads globally. Replication lag to the secondary Region should typically be under one second. Which feature should be used?", "options": {"A": "Aurora Global Database", "B": "DynamoDB Global Tables", "C": "RDS Manual Snapshots copied daily", "D": "S3 Lifecycle rules"}, "answer": "A", "explanation": "Aurora Global Database replication sang Region phụ với độ trễ thường dưới 1 giây — con số `< 1 second` là keyword nhận diện trong đề. Global Tables là của DynamoDB nên loại ngay, snapshot copy hàng ngày thì độ trễ tính bằng giờ, không thể dưới 1 giây."}];</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/quiz.js"></script>
+</body>
+</html>

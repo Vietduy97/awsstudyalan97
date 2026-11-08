@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trang chủ — Học AWS SAA-C03</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="index.html">☁️ Học AWS <span>SAA-C03</span></a>
+    <nav class="main-nav">
+      <a href="index.html">Trang chủ</a>
+      <a href="bai-hoc/index.html">Bài học</a>
+      <a href="cheatsheet/tong-hop.html">Cheat Sheet</a>
+      <a href="phan-biet.html">Phân biệt</a>
+      <a href="de-thi/index.html">Đề thi</a>
+      <a href="tai-lieu.html">Tài liệu &amp; Video</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+
+<section class="hero">
+  <h1>☁️ Học AWS SAA-C03 — từ số 0 đến ngày thi</h1>
+  <p>Thư viện tiếng Việt gồm 21 bài học, cheat sheet, bảng phân biệt dịch vụ, kho tài liệu/video và 3 đề mô phỏng 65 câu chấm điểm như thi thật.</p>
+</section>
+<section class="dashboard" id="dashboard">
+  <div class="stat-card"><div class="stat-num" id="stat-lessons">–</div><div class="stat-label">Bài đã học / 21</div><div class="progress"><div class="progress-bar" id="bar-lessons"></div></div></div>
+  <div class="stat-card"><div class="stat-num" id="stat-quizzes">–</div><div class="stat-label">Quiz đã làm (điểm cao nhất)</div><div class="progress"><div class="progress-bar" id="bar-quizzes"></div></div></div>
+  <div class="stat-card"><div class="stat-num" id="stat-exams">–</div><div class="stat-label">Lượt thi thử · điểm cao nhất</div><div class="progress"><div class="progress-bar" id="bar-exams"></div></div></div>
+  <div class="stat-card action-card">
+    <div class="stat-label">Học tiếp từ chỗ dở</div>
+    <a class="btn btn-primary" id="continue-btn" href="bai-hoc/index.html">Bắt đầu học →</a>
+    <button class="btn btn-danger-ghost" id="reset-progress" type="button">Xóa tiến độ đã lưu</button>
+  </div>
+</section>
+<section class="quick-links">
+  <a class="quick-card" href="bai-hoc/index.html"><strong>📚 21 bài học</strong><span>Theo lộ trình Beginner → SAA</span></a>
+  <a class="quick-card" href="de-thi/index.html"><strong>📝 3 đề mô phỏng</strong><span>65 câu · 130 phút · chấm điểm /1000</span></a>
+  <a class="quick-card" href="cheatsheet/tong-hop.html"><strong>⚡ Cheat Sheet</strong><span>Ôn nước rút trước ngày thi</span></a>
+  <a class="quick-card" href="tai-lieu.html"><strong>🎬 Tài liệu &amp; Video</strong><span>Khóa học, lab, nguồn chính thống</span></a>
+</section>
+<article class="md-body roadmap"><h1>Học AWS SAA-C03 — Thư viện tài liệu tiếng Việt</h1>
+<blockquote>
+<p>Bộ tài liệu tự học hoàn chỉnh cho người <strong>chưa biết gì về AWS</strong>, mục tiêu cuối là thi đỗ <strong>AWS Certified Solutions Architect – Associate (SAA-C03)</strong>.
+Ngôn ngữ: tiếng Việt (thuật ngữ chuyên môn và keyword đề thi giữ nguyên tiếng Anh, vì đề thi <strong>không có bản tiếng Việt</strong>).</p>
+</blockquote>
+<h2>Thông tin kỳ thi SAA-C03 (nắm trước khi học)</h2>
+<table>
+<thead>
+<tr>
+<th>Hạng mục</th>
+<th>Chi tiết</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Số câu</td>
+<td>65 câu (50 câu tính điểm + 15 câu không tính điểm, không phân biệt được)</td>
+</tr>
+<tr>
+<td>Thời gian</td>
+<td>130 phút (≈ 2 phút/câu)</td>
+</tr>
+<tr>
+<td>Điểm đạt</td>
+<td>720 / 1000 (điểm thang quy đổi)</td>
+</tr>
+<tr>
+<td>Lệ phí</td>
+<td>$150 USD</td>
+</tr>
+<tr>
+<td>Hiệu lực chứng chỉ</td>
+<td>3 năm</td>
+</tr>
+<tr>
+<td>Ngôn ngữ đề</td>
+<td>Tiếng Anh (không có tiếng Việt)</td>
+</tr>
+<tr>
+<td>Domain 1 — Design Secure Architectures</td>
+<td><strong>30%</strong></td>
+</tr>
+<tr>
+<td>Domain 2 — Design Resilient Architectures</td>
+<td><strong>26%</strong></td>
+</tr>
+<tr>
+<td>Domain 3 — Design High-Performing Architectures</td>
+<td><strong>24%</strong></td>
+</tr>
+<tr>
+<td>Domain 4 — Design Cost-Optimized Architectures</td>
+<td><strong>20%</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Cách dùng thư viện này</h2>
+<p>Học theo đúng thứ tự 3 giai đoạn. Mỗi bài học có cùng cấu trúc: <strong>Mục tiêu → Lý thuyết → Ví dụ đời thường → Phân biệt dễ nhầm → Bẫy đề thi → Tóm tắt 5 dòng → Quiz 5 câu</strong> (đáp án ở cuối mỗi file — tự làm trước, đối chiếu sau).</p>
+<h3>Giai đoạn 1 — Beginner: từ số 0 (Bài 00–12, khoảng 45–60 giờ)</h3>
+<ul>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-00.html"><code>bai-00-cloud-la-gi.md</code></a> — Cloud là gì, hạ tầng toàn cầu AWS, Shared Responsibility</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-01.html"><code>bai-01-iam-va-bao-mat-tai-khoan.md</code></a> — IAM và bảo mật tài khoản</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-02.html"><code>bai-02-billing-va-free-tier-an-toan.md</code></a> — Billing, Free Tier an toàn (đọc TRƯỚC khi tạo tài khoản!)</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-03.html"><code>bai-03-ec2-may-ao.md</code></a> — EC2: máy ảo trên mây</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-04.html"><code>bai-04-lambda-serverless.md</code></a> — Lambda và tư duy serverless</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-05.html"><code>bai-05-s3-luu-tru-doi-tuong.md</code></a> — S3: lưu trữ đối tượng</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-06.html"><code>bai-06-ebs-efs.md</code></a> — EBS, EFS và Instance Store</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-07.html"><code>bai-07-rds-quan-he.md</code></a> — RDS: cơ sở dữ liệu quan hệ</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-08.html"><code>bai-08-dynamodb-va-aurora.md</code></a> — DynamoDB và Aurora</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-09.html"><code>bai-09-vpc-mang-rieng.md</code></a> — VPC: mạng riêng ảo</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-10.html"><code>bai-10-route53-cloudfront.md</code></a> — Route 53 (DNS) và CloudFront (CDN)</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-11.html"><code>bai-11-giam-sat-cloudwatch-cloudtrail.md</code></a> — CloudWatch, CloudTrail, AWS Config</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-12.html"><code>bai-12-kms-ma-hoa.md</code></a> — KMS và mã hóa dữ liệu</li>
+</ul>
+<p>Song song giai đoạn 1: học khóa <strong>AWS Cloud Practitioner Essentials</strong> (miễn phí trên Skill Builder) và làm lab <strong>First Cloud Journey</strong> (tiếng Việt) — link trong <a href="tai-lieu.html"><code>kho-tai-lieu-tham-khao.md</code></a>.</p>
+<h3>Giai đoạn 2 — SAA nâng cao (Bài 13–20)</h3>
+<ul>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-13.html"><code>bai-13-elb-asg-ha.md</code></a> — ELB, Auto Scaling và High Availability</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-14.html"><code>bai-14-sqs-sns-eventbridge.md</code></a> — SQS, SNS, EventBridge: tách rời hệ thống (decoupling)</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-15.html"><code>bai-15-api-gateway.md</code></a> — API Gateway</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-16.html"><code>bai-16-cloudformation.md</code></a> — CloudFormation: Infrastructure as Code</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-17.html"><code>bai-17-ecs-eks-container.md</code></a> — Container: ECS, EKS, Fargate</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-18.html"><code>bai-18-disaster-recovery.md</code></a> — Disaster Recovery: RPO, RTO và 4 chiến lược</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-19.html"><code>bai-19-toi-uu-chi-phi.md</code></a> — Tối ưu chi phí (Cost Optimization)</li>
+<li class="task-item"><span class="task-box"></span> <a href="bai-hoc/bai-20.html"><code>bai-20-kien-truc-tong-hop-saa.md</code></a> — Kiến trúc tổng hợp + chiến thuật làm bài thi</li>
+</ul>
+<h3>Giai đoạn 3 — Ôn nước rút + luyện đề</h3>
+<p>Tài liệu ôn nhanh (đọc đi đọc lại nhiều lần):</p>
+<ul>
+<li class="task-item"><span class="task-box"></span> <a href="cheatsheet/tong-hop.html"><code>cheatsheet-tong-hop-saa.md</code></a> — Bảng keyword → dịch vụ, số liệu hay hỏi, cây quyết định</li>
+<li class="task-item"><span class="task-box"></span> <a href="cheatsheet/theo-dich-vu.html"><code>cheatsheet-theo-dich-vu.md</code></a> — Cheat sheet từng dịch vụ cốt lõi</li>
+<li class="task-item"><span class="task-box"></span> <a href="phan-biet.html"><code>phan-biet-cac-dich-vu.md</code></a> — Bảng so sánh các dịch vụ hay bị nhầm lẫn + quy tắc chọn</li>
+</ul>
+<p>Đề mô phỏng (câu hỏi tự biên soạn theo format đề thật — làm tính giờ 130 phút/bộ, chỉ mở file đáp án sau khi làm xong):</p>
+<ul>
+<li class="task-item"><span class="task-box"></span> <a href="de-thi/index.html"><code>de-mo-phong-01.md</code></a> + <code>de-mo-phong-01-dap-an.md</code> — 65 câu (trọng tâm: bảo mật, S3, VPC, HA)</li>
+<li class="task-item"><span class="task-box"></span> <a href="de-thi/index.html"><code>de-mo-phong-02.md</code></a> + <code>de-mo-phong-02-dap-an.md</code> — 65 câu (trọng tâm: DynamoDB, Lambda, decoupling, cache)</li>
+<li class="task-item"><span class="task-box"></span> <a href="de-thi/index.html"><code>de-mo-phong-03.md</code></a> + <code>de-mo-phong-03-dap-an.md</code> — 65 câu (trọng tâm: kiến trúc tổng hợp, migration, chi phí)</li>
+</ul>
+<p>Khi đạt ổn định <strong>80%+ ở các bộ đề tính giờ</strong>, hãy làm thêm đề chính thức (Official Practice Exam) rồi đặt lịch thi thật. Các nguồn luyện đề uy tín và khóa học bổ sung: xem <a href="tai-lieu.html"><code>kho-tai-lieu-tham-khao.md</code></a>.</p>
+<h2>Lộ trình theo tuần (tham khảo, 1–2 giờ/ngày)</h2>
+<table>
+<thead>
+<tr>
+<th>Tuần</th>
+<th>Nội dung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Bài 00–02 + tạo tài khoản an toàn + làm thử 20 câu Official Practice Question Set (miễn phí) để chẩn đoán</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Bài 03–04 (Compute) + lab EC2/Lambda</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Bài 05–06 (Storage) + lab S3</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Bài 07–08 (Database)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Bài 09–10 (Networking) + lab dựng VPC</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Bài 11–12 (Giám sát &amp; mã hóa) + đọc lại cheat sheet lần 1</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Bài 13–15 (HA, decoupling, API)</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Bài 16–18 (IaC, container, DR)</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Bài 19–20 (chi phí, tổng hợp) + bắt đầu đề mô phỏng 01</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Đề mô phỏng 02–03 tính giờ, sửa lỗi theo domain, ôn cheat sheet</td>
+</tr>
+</tbody>
+</table>
+<h2>Quy tắc an toàn tiền bạc (thuộc lòng)</h2>
+<ol>
+<li>Đọc Bài 02 và đặt <strong>AWS Budget + cảnh báo chi phí TRƯỚC</strong> khi tạo bất kỳ tài nguyên nào.</li>
+<li>Tài khoản mới (từ 15/07/2025): $100 credit ngay + tối đa $100 nữa trong 6 tháng — gói cũ "12 tháng miễn phí" không còn áp dụng.</li>
+<li>Học xong lab nào, <strong>terminate tài nguyên lab đó trong ngày</strong> (stop EC2 vẫn tốn tiền ổ EBS).</li>
+<li>Tuyệt đối không đăng access key lên mạng/GitHub.</li>
+</ol>
+<hr />
+<p><em>Thư viện được biên soạn ngày 08/11/2026. Đánh dấu [x] vào từng mục khi hoàn thành để theo dõi tiến độ.</em>
+<em>Trạng thái biên soạn: ĐÃ HOÀN THÀNH và tải lên Drive ngày 08/11/2026 — đủ 21 bài học, 2 cheat sheet, 1 file phân biệt dịch vụ, 3 bộ đề mô phỏng (mỗi bộ 65 câu + file đáp án riêng) và kho tài liệu tham khảo. Các ô [ ] phía trên là tiến độ HỌC của bạn, không phải tiến độ biên soạn.</em></p></article>
+<script src="assets/data/lessons.js"></script>
+<script>window.PAGE_INIT = 'dashboard';</script>
+
+</main>
+<footer class="site-footer">
+  <p>Thư viện tự học AWS SAA-C03 bằng tiếng Việt · Tiến độ học được lưu trên trình duyệt này (localStorage).</p>
+</footer>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
